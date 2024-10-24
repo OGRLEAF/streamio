@@ -1,12 +1,8 @@
+include $(PWD)/../../Makefile.variable
+
 KERN_DIR = /home/orgleaf/Works/adrv9001-project/software/linux-xlnx-xlnx_rebase_v6.6_LTS_merge_6.6.50/
 DEPLOY_DIR :=  dev:zynq/projects/ad9002_sys/tq15eg/rootfs/home/petalinux
-TOOLCHAIN_PATH = /media/orgleaf/MainPool/Apps/Xilinx/Vitis/2024.1/gnu/aarch64/lin/aarch64-linux/bin/
-INSTALL_CMD := bash ../deploy.sh
-
-ARCH:=arm64
-CROSS_COMPILE:=$(TOOLCHAIN_PATH)aarch64-linux-gnu-
-
-
+ARCH = $(TARGET_ARCH)
 LINUX_INC = -I$(KERN_DIR) \
         -I$(KERN_DIR)include \
         -I$(KERN_DIR)arch/$(ARCH)/include \
@@ -31,7 +27,7 @@ dtb:
 	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERN_DIR) M=`pwd` device-tree/system-top.dtb
 
 install: all
-	$(INSTALL_CMD) ./stream_dma_driver.ko
+	$(INSTALL_CMD) ./stream_dma_driver.ko kernel_modules/
 
 clean:
 	rm -rf ${TARGET} ${OBJS} $(OBJS:.o=.su)

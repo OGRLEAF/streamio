@@ -1,18 +1,17 @@
 include ../Makefile.variable
 # Thanks to Job Vranish (https://spin.atomicobject.com/2016/08/26/makefile-c-projects/)
-LIB_DEPLOY_PATH = ../userspace/lib 
+TARGET_EXEC :=  libstreamio-x64.so
 
-TARGET_EXEC :=  libstreamio.so
-CC := $(CROSS_COMPILE)gcc
-CXX := $(CROSS_COMPILE)gcc
+CC := gcc
+CXX := gcc
 
-BUILD_DIR := ./build
+BUILD_DIR := ./build-x64
 SRC_DIRS := ./
 
 # Find all the C and C++ files we want to compile
 # Note the single quotes around the * expressions. The shell will incorrectly expand these otherwise, but we want to send the * directly to the find command.
 SRCS := $(shell find $(SRC_DIRS) -name '*.cpp' -or -name '*.c' -or -name '*.s')
-LIB_HEADERS = $(shell find $(SRC_DIRS) -name '*.h')
+
 
 # Prepends BUILD_DIR and appends .o to every src file
 # As an example, ./your_dir/hello.cpp turns into ./build/./your_dir/hello.cpp.o
@@ -57,18 +56,9 @@ $(BUILD_DIR)/%.cpp.o: %.cpp
 .PHONY: clean
 clean:
 	rm -r $(BUILD_DIR)
-	rm -r $(LIB_DEPLOY_PATH)
-	$(MAKE) -f makefile.x64 clean
 
 install: $(BUILD_DIR)/$(TARGET_EXEC)
-	echo $(LIB_HEADERS)
-	mkdir -p $(LIB_DEPLOY_PATH)
-	cp -r include/* $(LIB_DEPLOY_PATH)
-	cp $(BUILD_DIR)/$(TARGET_EXEC) $(LIB_DEPLOY_PATH)
-	$(MAKE) -f makefile.x64 install
-
-
-
+	cp $(BUILD_DIR)/$(TARGET_EXEC) ../userspace/lib
 # Include the .d makefiles. The - at the front suppresses the errors of missing
 # Makefiles. Initially, all the .d files will be missing, and we don't want those
 # errors to show up.

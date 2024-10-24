@@ -1,9 +1,8 @@
-
+include $(PWD)/../../Makefile.variable
 # Thanks to Job Vranish (https://spin.atomicobject.com/2016/08/26/makefile-c-projects/)
-INSTALL_CMD := bash ../deploy.sh
+
 TARGET_EXEC := test_app
-CROSS_COMPILE = aarch64-linux-gnu-
-SYSROOT = /home/orgleaf/Works/adrv9001-project/software/sysroot/sysroots/x86_64-petalinux-linux
+
 CC := $(CROSS_COMPILE)gcc
 CXX := $(CROSS_COMPILE)gcc
 
@@ -40,7 +39,7 @@ LDFLAGS += -L../lib/ -Wl,-rpath,lib/ -lm -lstreamio
 # The -MMD and -MP flags together generate Makefiles for us!
 # These files will have .d instead of .o as the output.
 CPPFLAGS := $(INC_FLAGS) -MMD -MP  
-# CFLAGS := --sysroot=$(SYSROOT)
+CFLAGS := -D__x86_64__ -D__LP64__ --sysroot=$(SYSROOT)
 
 # test:
 # 	echo $(LIB_OBJS) 

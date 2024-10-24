@@ -18,9 +18,9 @@
 #include <stdarg.h>
 #include <signal.h>
 #include <net/if.h>
-#include "bbio_h.h"
+#include <bbio_h.h>
 
-#include "bbio_backend_net.h"
+#include <bbio_backend_net.h>
 
 typedef struct _run_options
 {
@@ -76,20 +76,20 @@ void error(char *msg)
     exit(1);
 }
 
-void client_info(struct sockaddr_in *cli_addr, char *msg, ...)
-{
-    va_list va_list;
-    char addr_str[INET_ADDRSTRLEN];
-    char *output_buf;
-    char *output_fmt;
+// void client_info(struct sockaddr_in *cli_addr, char *msg, ...)
+// {
+//     va_list va_list;
+//     char addr_str[INET_ADDRSTRLEN];
+//     char *output_buf;
+//     char *output_fmt;
 
-    va_start(va_list, msg);
-    inet_ntop(cli_addr->sin_family,
-              &cli_addr->sin_addr,
-              addr_str, sizeof addr_str);
-    asprintf(&output_fmt, "INFO [%s:%d]%s", addr_str, cli_addr->sin_port, msg);
-    vasprintf(&output_buf, output_fmt, va_list);
-}
+//     va_start(va_list, msg);
+//     inet_ntop(cli_addr->sin_family,
+//               &cli_addr->sin_addr,
+//               addr_str, sizeof addr_str);
+//     asprintf(&output_fmt, "INFO [%s:%d]%s", addr_str, cli_addr->sin_port, msg);
+//     vasprintf(&output_buf, output_fmt, va_list);
+// }
 
 int client_finish_handshake(int sockfd) // TODO: io_context
 {

@@ -1,0 +1,5 @@
+PROJECT_PATH := $(dir $(lastword $(MAKEFILE_LIST)))
+SYSROOT = /home/orgleaf/Works/adrv9001-project/software/sysroot/sysroots/x86_64-petalinux-linux
+CROSS_COMPILE = aarch64-linux-gnu-
+INSTALL_CMD = bash $(PROJECT_PATH)/deploy.sh
+TARGET_ARCH = arm64

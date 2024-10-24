@@ -1,6 +1,6 @@
 #include <stdint.h>
-#include "bbio_h.h"
-#include "bbio_backend_net.h"
+#include <bbio_h.h>
+#include <bbio_backend_net.h>
 
 #define SYS_CALL 0
 #define MEM_RW 1

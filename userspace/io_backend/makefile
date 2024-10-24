@@ -1,14 +1,12 @@
-
+include ../../Makefile.variable
 # Thanks to Job Vranish (https://spin.atomicobject.com/2016/08/26/makefile-c-projects/)
-INSTALL_CMD := bash deploy.sh
 TARGET_EXEC := io_backend
-CROSS_COMPILE = aarch64-linux-gnu-
-SYSROOT = /home/orgleaf/works/xilinx/sysroot/sysroots/x86_64-petalinux-linux
+# SYSROOT = /home/orgleaf/Works/adrv9001-project/software/sysroot
 CC := $(CROSS_COMPILE)gcc
 CXX := $(CROSS_COMPILE)gcc
 
 BUILD_DIR := ./build
-SRC_DIRS := ./src ../test_app/src/lib/
+SRC_DIRS := ./src
 LIB_DIRS := ../lib/
 
 
@@ -30,12 +28,12 @@ INC_DIRS += $(shell find $(LIB_DIRS) -type d)
 
 # Add a prefix to INC_DIRS. So moduleA would become -ImoduleA. GCC understands this -I flag
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
-LDFLAGS += -lm
+LDFLAGS += -L../lib/ -Wl,-rpath,lib/ -lm -lstreamio 
 
 # The -MMD and -MP flags together generate Makefiles for us!
 # These files will have .d instead of .o as the output.
 CPPFLAGS := $(INC_FLAGS) -MMD -MP
-# CFLAGS := --sysroot=$(SYSROOT)
+CFLAGS := -D__x86_64__ -D__LP64__ --sysroot=$(SYSROOT)
 
 # The final build step.
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)

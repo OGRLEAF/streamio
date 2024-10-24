@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 #include <fcntl.h>
 #include <time.h>
 #include <argp.h>
@@ -27,7 +28,7 @@ int main_tx(int argc, char **argv)
     io_context *ctx = io_create_context(); //_net_context("192.168.2.5", 12345);
     printf("Add devices\n");
 
-    io_stream_device *dma_tx = (io_stream_device *)io_add_stream_device(ctx, "/dev/streamio_tx_1");
+    io_stream_device *dma_tx = (io_stream_device *)io_add_stream_device(ctx, "/dev/streamio_tx_0");
 
     int test_times = 100, j = 0;
 

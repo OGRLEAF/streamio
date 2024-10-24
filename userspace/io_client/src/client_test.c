@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
@@ -13,55 +14,38 @@
 #include <sys/wait.h>
 #include <linux/types.h>
 #include <sys/mman.h>
-#include "bbio_h.h"
+#include <bbio_h.h>
 
 #define TEST_SIZE 512
 
-int main__(int argc, char **argv)
+
+int main_tx(int argc, char **argv)
 {
     printf("sizeof pointer=%ld enum=%ld\n", sizeof(uint32_t *), sizeof(PROXY_BUSY));
     printf("Create context\n");
     int i, ret;
-    if (argc < 3)
-    {
-        return 0;
-    }
-    io_context *ctx = io_create_net_context(argv[1], atoi(argv[2]));
-    if (!ctx)
-    {
-        return -1;
-    }
+    io_context *ctx = io_create_net_context(argv[1], atoi(argv[2])); //_net_context("192.168.2.5", 12345);
     printf("Add devices\n");
-    io_mapped_device *dev = (io_mapped_device *)io_add_mapped_device(ctx, "/dev/tc");
 
-    uint32_t test_addr = 5;
-    int read_value = io_read_mapped_device(dev, test_addr);
-    printf("Read value=%d\n", read_value);
+    io_stream_device *dma_tx = (io_stream_device *)io_add_stream_device(ctx, "/dev/streamio_tx_1");
 
-    printf("Try write...\n");
-    io_write_mapped_device(dev, test_addr, read_value + 1);
+    int test_times = 100, j = 0;
 
-    read_value = io_read_mapped_device(dev, test_addr);
-    printf("Read value=%d\n", read_value);
-
-    io_stream_device *dma_dev = (io_stream_device *)io_add_stream_device(ctx, "/dev/dma_proxy_tx");
-
-    // io_write_stream_device(dma_dev, buffer_test, test_size * sizeof(iq_buffer));
-    while (1)
+    int test_size = MAX_SAMPLES;
+    for (int j = 0; j < test_times; j++)
     {
-        struct channel_buffer *buffer_test = io_stream_get_buffer(dma_dev);
+        struct channel_buffer *buffer_test = io_stream_get_buffer(dma_tx);
 
-        int test_size = MAX_SAMPLES;
         for (i = 0; i < test_size; i++)
         {
-            buffer_test->buffer[i].I0 = i;
-            buffer_test->buffer[i].Q0 = i;
+            buffer_test->buffer[i].I0 = i + j * test_size;
+            buffer_test->buffer[i].Q0 = i + j * test_size;
         }
-
-        // printf("Sync buffer samples=%d buffer=%p\n", test_size, buffer_test);
-
-        io_write_stream_device(dma_dev, buffer_test, test_size * sizeof(iq_buffer));
+        io_write_stream_device(dma_tx, buffer_test, test_size * sizeof(iq_buffer));
     }
+
+    io_close_context(ctx);
+
     return 0;
 }
 
@@ -106,7 +90,7 @@ int validate_data(struct channel_buffer *buffer_rx, int test_size, int k, int j)
     }
 }
 
-int main(int argc, char **argv)
+int main_rx(int argc, char **argv)
 {
     printf("sizeof pointer=%ld enum=%ld\n", sizeof(uint32_t *), sizeof(PROXY_BUSY));
     printf("Create context\n");
@@ -143,7 +127,7 @@ int main(int argc, char **argv)
     // release reset
     io_write_mapped_device(map_dev, 5, 0);
 
-    io_stream_device *dma_rx = (io_stream_device *)io_add_stream_device(ctx, "/dev/dma_mm_rx");
+    io_stream_device *dma_rx = (io_stream_device *)io_add_stream_device(ctx, "/dev/streamio_rx_0");
 
     int rx_test_size = test_size; // 256 + 128;
 
@@ -183,4 +167,9 @@ force_exit:
     
     io_close_context(ctx);
     
+}
+
+int main(int argc, char **argv)
+{
+    return main_rx(argc, argv);
 }

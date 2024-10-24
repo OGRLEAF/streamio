@@ -30,7 +30,7 @@ INC_DIRS += $(shell find $(LIB_DIRS) -type d)
 
 # Add a prefix to INC_DIRS. So moduleA would become -ImoduleA. GCC understands this -I flag
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
-LDFLAGS += -L../lib/ -Wl,-rpath,lib/ -lm -lstreamio 
+LDFLAGS += -L../lib/  -Wl,-rpath,../lib/ -lm -lstreamio-x64
 
 # The -MMD and -MP flags together generate Makefiles for us!
 # These files will have .d instead of .o as the output.
@@ -56,11 +56,6 @@ $(BUILD_DIR)/%.cpp.o: %.cpp
 .PHONY: clean
 clean:
 	rm -r $(BUILD_DIR)
-
-install: $(BUILD_DIR)/$(TARGET_EXEC)
-	$(INSTALL_CMD) $(BUILD_DIR)/$(TARGET_EXEC)
-# root@100.64.0.19:/home/orgleaf/workspace/rootfs/home/root/
-
 
 
 # Include the .d makefiles. The - at the front suppresses the errors of missing

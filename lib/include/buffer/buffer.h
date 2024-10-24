@@ -17,17 +17,18 @@ typedef struct _iq_buffer
 
 #define MAX_SAMPLES _MAX_SAMPLES(iq_buffer)
 
+enum proxy_status
+{
+	PROXY_NO_ERROR = 0,
+	PROXY_BUSY = 1,
+	PROXY_TIMEOUT = 2,
+	PROXY_ERROR = 3,
+	PROXY_QUEUED = 4
+};
 struct channel_buffer
 {
 	iq_buffer buffer[_MAX_SAMPLES(iq_buffer)];
-	enum proxy_status
-	{
-		PROXY_NO_ERROR = 0,
-		PROXY_BUSY = 1,
-		PROXY_TIMEOUT = 2,
-		PROXY_ERROR = 3,
-		PROXY_QUEUED = 4
-	} status;
+	enum proxy_status status;
 	unsigned int length;
 } __attribute__((aligned(1024)));
 
