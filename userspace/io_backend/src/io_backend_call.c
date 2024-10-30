@@ -6,7 +6,8 @@
 #include <sys/uio.h>
 #include <sys/ioctl.h>
 #include <time.h>
-
+#include <pthread.h>
+#include <string.h>
 #include "io_backend_call.h"
 #include "stdio.h"
 
@@ -67,6 +68,7 @@ void client_cmd_write(io_mapped_device *d, int sockfd)
     uint32_t value;
     recv(sockfd, &addr, sizeof(addr), 0);
     recv(sockfd, &value, sizeof(value), 0);
+    printf("client_cmd_write: %d -> %d", value, addr);
     io_write_mapped_device(d, addr, value);
 }
 
@@ -122,13 +124,13 @@ void client_open_stream(int sockfd)
 int client_mapped_cmd_handle(io_mapped_device *device, int sockfd)
 {
     int n;
-    io_call_cmd cmd;
+    uint8_t cmd;
 
     n = read(sockfd, &cmd, sizeof(cmd)); //, 0);
     if (n > 0)
     {
-        // printf("client_cmd_call type=%d\n", cmd->call_type);
-        switch (cmd.call_type)
+        printf("client_cmd_call type=%d\n", cmd);
+        switch (cmd)
         {
         case CALL_WRITE:
             client_cmd_write(device, sockfd);
@@ -182,7 +184,7 @@ void *client_write_stream_monitor(void *ptr)
 {
     struct stream_status *s = (struct stream_status *)ptr;
     uint64_t last_size;
-    printf("Monitoring...\n\n");
+    printf("Monitor started...\n\n");
     char indicate[4] = "-\\|/";
     int i = 0;
     while (!s->stop)
@@ -211,16 +213,19 @@ int client_cmd_write_stream_inf(io_stream_device *d, int sockfd)
             .stream_n = 0,
             .accu_size = 0,
             .stop = 0};
+
     pid = pthread_create(&monitor_thread, NULL, client_write_stream_monitor, &status);
     ch_buffer = io_stream_get_buffer(d);
 
     while (1)
     {
+
         recv(sockfd, &start_cmd, sizeof(start_cmd), 0);
-        if ((start_cmd >> 1) == CALL_WRITE_STREAM)
+        // printf("client_cmd_write_stream_inf start=%d\n", start_cmd);
+        if ((start_cmd) == CALL_WRITE_STREAM)
         {
             n = recv(sockfd, &recv_size, sizeof(recv_size), 0);
-            // printf("Receive stream %d: %u(n=%d)\n", start_cmd, recv_size, n);
+
             while (recv_size > 0)
             {
                 n = recv(sockfd, ((void *)ch_buffer->buffer) + buffer_ptr, recv_size, 0);
@@ -272,12 +277,15 @@ void *client_read_stream_control(void *ptr)
     }
 }
 
+
+
 int client_cmd_read_stream_inf(io_stream_device *d, int sockfd)
 {
-    struct channel_buffer *ch_buffer = NULL;
-    uint32_t send_size, stream_size = 1024 * sizeof(iq_buffer);
+
+    uint32_t send_size, stream_size = 32 * 1024 * sizeof(iq_buffer);
     int n, ret, act = 0;
-    uint8_t start_cmd = (CALL_READ_STREAM << 1), recv_cmd;
+    uint8_t start_cmd = (CALL_READ_STREAM << 1);
+
     uint32_t buffer_ptr = 0;
     struct iovec iov[4];
 
@@ -293,49 +301,44 @@ int client_cmd_read_stream_inf(io_stream_device *d, int sockfd)
                 .stop = 0},
             .sync = 0};
 
-    fd_set rfds, wfds;
-    // pid = pthread_create(&monitor_thread, NULL, client_read_stream_control, &ctrl);
-
-    FD_ZERO(&wfds);
-    FD_SET(sockfd, &wfds);
-
+    // launch read
+    struct channel_buffer *ch_buffer = io_stream_get_buffer(d);
+    
+    for (int i = 0; i < 32; i++)
+    {
+        memset(ch_buffer, -1, stream_size);
+        io_read_stream_device(d, (void *)ch_buffer->buffer, stream_size);
+        ch_buffer = io_stream_get_buffer(d);
+    }
+    printf("client_cmd_read_stream_inf: read started\n");
     while (1)
     {
 
-        if (ch_buffer)
+        ch_buffer = io_stream_get_buffer(d);
+        io_sync_stream_device(d);
+
+        // validate_data(ch_buffer, 1024, 0);
+
+        send_size = 1024 * 4;
+        iov[0].iov_base = &start_cmd;
+        iov[0].iov_len = sizeof(start_cmd);
+
+        iov[1].iov_base = &send_size;
+        iov[1].iov_len = sizeof(send_size);
+        iov[2].iov_base = (void *)ch_buffer->buffer;
+        iov[2].iov_len = send_size;
+        n = writev(sockfd, iov, 3);
+
+        if (n <= 0)
         {
-            // n = recv(sockfd, &recv_cmd, sizeof(recv_cmd), 0);
-            // if (recv_cmd == start_cmd)
-            // {
-            //     printf("Synced");
-            // }
-            send_size = stream_size;
-            iov[0].iov_base = &start_cmd;
-            iov[0].iov_len = sizeof(start_cmd);
-
-
-            iov[1].iov_base = &send_size;
-            iov[1].iov_len = sizeof(send_size);
-            iov[2].iov_base = (void *)ch_buffer->buffer;
-            iov[2].iov_len = send_size;
-
-            n = writev(sockfd, iov, 3);
-
-            if (n <= 0)
-            {
-                break;
-            }
-
-            ctrl.s.accu_size += n;
-            ctrl.s.stream_n += 1;
-
-            io_read_stream_device(d, (void *)ch_buffer->buffer, stream_size);
-            ch_buffer = io_stream_get_buffer(d);
+            break;
         }
-        else
-        {
-            ch_buffer = io_stream_get_buffer(d);
-        }
+
+        ctrl.s.accu_size += n;
+        ctrl.s.stream_n += 1;
+
+        memset(ch_buffer, -1, stream_size);
+        io_read_stream_device(d, (void *)ch_buffer->buffer, stream_size);
     }
 
     ctrl.s.stop = 1;
@@ -348,12 +351,14 @@ int client_stream_cmd_handle(io_stream_device *device, int sockfd)
     int n;
     uint8_t cmd;
     int next_action = 0;
+
     do
     {
         n = recv(sockfd, &cmd, sizeof(cmd), 0); //, 0);
+        printf("client_stream_cmd_handle cmd=%d\n", cmd);
         if (n > 0)
         {
-            switch (cmd >> 1)
+            switch (cmd)
             {
             case CALL_WRITE_STREAM:
                 next_action = client_cmd_write_stream_inf(device, sockfd);

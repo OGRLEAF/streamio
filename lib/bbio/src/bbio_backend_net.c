@@ -66,7 +66,7 @@ int io_net_call_create(io_net_context *ctx, enum cmd_call_type type)
 
 #define io_net_call_start(ctx, type)                                \
     {                                                               \
-        uint8_t type_value = ((uint8_t)type << 1) | (0 & 0b1);      \
+        uint8_t type_value = (uint8_t)type;                         \
         _call_print("Call %s %d\n", #type, type);                   \
         send(ctx->fd, &type_value, sizeof(type_value), SOCK_FLAGS); \
     }
@@ -78,7 +78,7 @@ int io_net_call_create(io_net_context *ctx, enum cmd_call_type type)
 
 #define io_net_call_startv(ctx, iov, type)                     \
     {                                                          \
-        uint8_t type_value = ((uint8_t)type << 1) | (0 & 0b1); \
+        uint8_t type_value = ((uint8_t)type); \
         _call_print("Call %s %d\n", #type, type);              \
         iov.iov_base = &type_value;                            \
         iov.iov_len = sizeof(uint8_t);                         \
@@ -139,19 +139,47 @@ static uint32_t io_write_stream_net(io_stream_device *device, void *data, uint32
     }
 
     struct iovec iov[3];
-    // io_net_call_startv(device, iov[0], CALL_WRITE_STREAM);
-    // io_net_call_paramv(device, iov[1], sizeof(size), &size);
-    // io_net_call_paramv(device, iov[2], size, data);
-    // writev(device->fd, iov, 3);
-    io_net_call_start(device, CALL_WRITE_STREAM);
-    io_net_call_param(device, sizeof(size), &size);
-    io_net_call_param(device, size, data);
-    // io_net_call_param(device, size, data);
-    // io_net_call_return(device, sizeof(size), &size);
+    io_net_call_startv(device, iov[0], CALL_WRITE_STREAM);
+    io_net_call_paramv(device, iov[1], sizeof(size), &size);
+    io_net_call_paramv(device, iov[2], size, data);
+    writev(device->fd, iov, 3);
+
     return size;
 }
 
 // Basic implementation of blocked stream read from net.
+static uint32_t io_read_stream_net_basic(io_stream_device *device, void *data, uint32_t size)
+{
+    int sockfd = device->fd;
+    struct net_device_state *state = (struct net_device_state *)device->ch.private;
+
+    uint32_t n, recv_size = 0;
+    uint8_t start_cmd = -1;
+
+    uint32_t buffer_ptr = 0;
+    if (!state->handshaked)
+    {
+        io_net_call_start(device, CALL_READ_STREAM);
+        state->handshaked = 1;
+        state->remain_recv_size = 0;
+    }
+
+    n = recv(sockfd, &start_cmd, sizeof(start_cmd), 0); // sync with header of stream
+    if (start_cmd == (CALL_READ_STREAM << 1))
+    {
+        n = recv(sockfd, &recv_size, sizeof(recv_size), 0);
+        printf("recieve size = %d / %d\n", recv_size, size);
+    }
+    else
+    {
+        printf("Failed to sync with read stream %d %d \n", start_cmd, n);
+    }
+
+    n = recv(sockfd, (data), recv_size, 0);
+    return n;
+
+}
+
 static uint32_t io_read_stream_net(io_stream_device *device, void *data, uint32_t size)
 {
     int sockfd = device->fd;
@@ -193,7 +221,7 @@ static uint32_t io_read_stream_net(io_stream_device *device, void *data, uint32_
         size = state->remain_recv_size;
     }
 
-    printf("Size=%d/%d to recieve\n", state->remain_recv_size, size);
+    // printf("Size=%d/%d to recieve\n", state->remain_recv_size, size);
     // state->remain_recv_size -= size; // assumming size will be fully consumed
     while (size > 0)
     {
@@ -229,7 +257,7 @@ static int io_handshake(int sockfd, enum cmd_channel_type type)
     n = recv(sockfd, &ack, sizeof(ack), SOCK_FLAGS);
     if ((n <= 0) || (ack != HANDSHAKE_HEADER))
         return -1;
-    printf("Handshake ok\n");
+    // printf("Handshake ok\n");
     return 0;
 }
 
@@ -240,7 +268,6 @@ static IO_FD io_open_remote_device(int sockfd, char *dev_path, size_t size)
     int n;
     // open device
     path_len = strlen(dev_path);
-    printf("open remote %d %s %ld\n", path_len, dev_path, size);
     send(sockfd, &path_len, sizeof(path_len), 0);
     send(sockfd, dev_path, path_len, 0);
     send(sockfd, &size, sizeof(size), 0);
@@ -274,11 +301,15 @@ io_mapped_device *io_open_mapped_net(io_context *ctx, char *file_path, size_t si
     setsockopt(sockfd, SOL_SOCKET, SO_ZEROCOPY, &flag, sizeof(flag));
 
     // handshake
-    printf("Handshake...\n");
+    printf("io_open_mapped_net: Handshake...");
     if (io_handshake(sockfd, MAPPED_CHANNEL))
         return NULL;
     // send file info
     remotefd = io_open_remote_device(sockfd, file_path, size);
+
+    if (remotefd < 1)
+        return NULL;
+    printf("io_open_mapped_net: Remote device %s open ok fd=%d\n", file_path, remotefd);
 
     device = (io_mapped_device *)malloc(sizeof(io_mapped_device));
     device->device.path = file_path;
@@ -328,15 +359,16 @@ io_stream_device *io_open_stream_net(io_context *ctx, char *file_path)
     // setsockopt(sockfd, SOL_SOCKET, SO_ZEROCOPY, &flag, sizeof(flag));
 
     // handshake
+    printf("io_open_stream_net: Handshake...");
     if (io_handshake(sockfd, STREAM_CHANNEL))
         return NULL;
     // send file info
-    printf("Open remote...");
+
     remotefd = io_open_remote_device(sockfd, file_path, 0);
 
     if (remotefd < 1)
         return NULL;
-    printf("Remote device %s open ok\n", file_path);
+    printf("io_open_stream_net: Remote device %s open ok fd=%d\n", file_path, remotefd);
 
     device = (io_stream_device *)malloc(sizeof(io_stream_device));
     device->fd = sockfd;
@@ -352,12 +384,10 @@ io_stream_device *io_open_stream_net(io_context *ctx, char *file_path)
 
     device->ch.private = (void *)state;
 
-    if (!state->handshaked)
-    {
-        io_net_call_start(device, CALL_READ_STREAM);
-        state->handshaked = 1;
-        state->remain_recv_size = 0;
-    }
+        // io_net_call_start(device, CALL_READ_STREAM);
+    state->handshaked = 0;
+    state->remain_recv_size = 0;
+
 
     device->ch.alloc_buffer = io_stream_alloc_buffer_net;
 

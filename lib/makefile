@@ -65,6 +65,8 @@ install: $(BUILD_DIR)/$(TARGET_EXEC)
 	mkdir -p $(LIB_DEPLOY_PATH)
 	cp -r include/* $(LIB_DEPLOY_PATH)
 	cp $(BUILD_DIR)/$(TARGET_EXEC) $(LIB_DEPLOY_PATH)
+	$(INSTALL_CMD) $(BUILD_DIR)/$(TARGET_EXEC) /lib
+
 	$(MAKE) -f makefile.x64 install
 
 

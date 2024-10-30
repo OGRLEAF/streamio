@@ -15,21 +15,16 @@
 #include <linux/types.h>
 #include <sys/mman.h>
 #include <bbio_h.h>
+#include <sys/param.h>
 
 #define TEST_SIZE 512
 
-
-int main_tx(int argc, char **argv)
+int main_tx(io_context *ctx)
 {
-    printf("sizeof pointer=%ld enum=%ld\n", sizeof(uint32_t *), sizeof(PROXY_BUSY));
-    printf("Create context\n");
     int i, ret;
-    io_context *ctx = io_create_net_context(argv[1], atoi(argv[2])); //_net_context("192.168.2.5", 12345);
-    printf("Add devices\n");
+    io_stream_device *dma_tx = (io_stream_device *)io_add_stream_device(ctx, "/dev/streamio_tx_0");
 
-    io_stream_device *dma_tx = (io_stream_device *)io_add_stream_device(ctx, "/dev/streamio_tx_1");
-
-    int test_times = 100, j = 0;
+    int test_times = 10000, j = 0;
 
     int test_size = MAX_SAMPLES;
     for (int j = 0; j < test_times; j++)
@@ -69,41 +64,31 @@ int validate_data(struct channel_buffer *buffer_rx, int test_size, int k, int j)
             continue;
         err = 1;
         printf("Data validate error at %d %d- [%d]:  Expect %d, recieve %d \n", j, k, i + 1, check_value, value);
+        for (int pos = (i > 10 ? i - 10 : 0);
+             pos < MIN(i + 10, test_size);
+             pos++)
+        {
+            // printf("%d ", pos);
+            if (pos == i)
+                printf("<");
+            printf("%d", *((int *)&buffer_rx->buffer[pos]));
+            if (pos == i)
+                printf(">");
+            printf(" ");
+        }
+        printf("\n");
+
         break;
     }
 
-    if (!err)
-    {
-        putc('-', stderr);
-        return 0;
-    }
-    else
-    {
-        putc('X', stderr);
-        return -1;
-        // for (i = 0; i < test_size; i++)
-        // {
-        //     int value = *((int *)&buffer_rx->buffer[i]);
-        //     printf("%d ", value);
-        // }
-        // printf("\n");
-    }
+    return -err;
 }
 
-int main_rx(int argc, char **argv)
+int main_rx(io_context *ctx)
 {
     printf("sizeof pointer=%ld enum=%ld\n", sizeof(uint32_t *), sizeof(PROXY_BUSY));
     printf("Create context\n");
-    int i, ret;
-    if (argc < 3)
-    {
-        return 0;
-    }
-    io_context *ctx = io_create_net_context(argv[1], atoi(argv[2]));
-    if (!ctx)
-    {
-        return -1;
-    }
+    int i = 0, ret;
 
     printf("sizeof pointer=%ld enum=%ld\n", sizeof(uint32_t *), sizeof(PROXY_BUSY));
     printf("Create context\n");
@@ -111,12 +96,11 @@ int main_rx(int argc, char **argv)
     printf("Add devices\n");
 
     io_mapped_device *map_dev = (io_mapped_device *)io_add_mapped_device(ctx, "/dev/tc");
-    int test_buffers = 32, j = 0;
+    int test_buffers = 1, j = 0;
     struct channel_buffer *buffers_rx_test[32];
-    int test_size = 1024, loop_times = 500;
+    int test_size = 1024 * 1, loop_times = 10000000;
 
-    int validate = loop_times /loop_times;
-
+    int validate = 1000, valid_ok_count = 0;
 
     // perform reset1
     io_write_mapped_device(map_dev, 5, 3);
@@ -131,12 +115,10 @@ int main_rx(int argc, char **argv)
 
     int rx_test_size = test_size; // 256 + 128;
 
-
     signal(SIGINT, sigint);
 
     // goto exit;
-
-    while (loop_times && !stop)
+    while ((i < loop_times) && !stop)
     {
         for (j = 0; (j < test_buffers) && !stop; j++)
         {
@@ -149,27 +131,44 @@ int main_rx(int argc, char **argv)
             }
             memset(buffer_rx_test->buffer, -1, sizeof(iq_buffer) * rx_test_size);
             io_read_stream_device(dma_rx, buffer_rx_test, sizeof(iq_buffer) * test_size);
-            if(((loop_times * test_buffers + j) % validate) == 0) {
-                if(validate_data(buffer_rx_test, test_size, loop_times, j) < 0) {
-                    goto exit;
+
+            if (validate_data(buffer_rx_test, test_size, i, j) < 0)
+            {
+                goto force_exit;
+            }
+            else
+            {
+                valid_ok_count = (valid_ok_count + 1) % validate;
+                if (valid_ok_count == validate - 1){
+                    fputc('-', stderr);
                 }
             }
-
         }
         io_sync_stream_device(dma_rx);
 
-        loop_times--;
+        i++;
     }
-    putc('\n', stderr);
+
 exit:
-    io_sync_stream_device(dma_rx);
+    putc('\n', stderr);
+    // io_sync_stream_device(dma_rx);
 force_exit:
-    
+
     io_close_context(ctx);
-    
 }
 
 int main(int argc, char **argv)
 {
-    return main_rx(argc, argv);
+    if (argc < 3)
+    {
+        printf("Usage: io_client <ip> <port>\n");
+        return 0;
+    }
+    io_context *ctx = io_create_net_context(argv[1], atoi(argv[2]));
+    if (!ctx)
+    {
+        return -1;
+    }
+
+    return main_rx(ctx);
 }

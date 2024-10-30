@@ -25,7 +25,8 @@ int main_tx(int argc, char **argv)
     printf("sizeof pointer=%ld enum=%ld\n", sizeof(uint32_t *), sizeof(PROXY_BUSY));
     printf("Create context\n");
     int i, ret;
-    io_context *ctx = io_create_context(); //_net_context("192.168.2.5", 12345);
+    io_context *ctx = io_create_context();
+    // io_context *ctx = io_create_net_context("192.168.2.5", 12345);
     printf("Add devices\n");
 
     io_stream_device *dma_tx = (io_stream_device *)io_add_stream_device(ctx, "/dev/streamio_tx_0");
@@ -50,7 +51,7 @@ int main_tx(int argc, char **argv)
     return 0;
 }
 
-int validate_data(struct channel_buffer *buffer_rx, int test_size, int j)
+int validate_data(struct channel_buffer *buffer_rx, int test_size, int j, int verbose)
 {
     int i;
     int check_value;
@@ -68,18 +69,22 @@ int validate_data(struct channel_buffer *buffer_rx, int test_size, int j)
 
     if (!err)
     {
-        // printf("Buffer %d len=%d Validate ok\n", j, test_size);
+        if (verbose)
+            printf("Buffer %d len=%d Validate ok\n", j, test_size);
         putc('-', stderr);
     }
     else
     {
         putc('X', stderr);
-        // for (i = 0; i < test_size; i++)
-        // {
-        //     int value = *((int *)&buffer_rx->buffer[i]);
-        //     printf("%d ", value);
-        // }
-        // printf("\n");
+        if (verbose)
+        {
+            for (i = 0; i < test_size; i++)
+            {
+                int value = *((int *)&buffer_rx->buffer[i]);
+                printf("%d ", value);
+            }
+            printf("\n");
+        }
     }
 }
 
@@ -101,10 +106,9 @@ int main_rx(int argc, char **argv)
 
     io_mapped_device *map_dev = (io_mapped_device *)io_add_mapped_device(ctx, "/dev/tc");
     int test_buffers = 32, j = 0;
-    struct channel_buffer *buffers_rx_test[32];
-    int test_size = 20480, loop_times = 1000;
+    int test_size = 32 * 1024, loop_times = 1000, valid_interval = 100;
 
-    // perform reset1
+    // perform reset
     io_write_mapped_device(map_dev, 5, 3);
 
     // configure stream size
@@ -118,31 +122,31 @@ int main_rx(int argc, char **argv)
     io_write_mapped_device(map_dev, 5, 0);
 
     signal(SIGINT, sigint);
+
+    struct channel_buffer *buffer_rx_test = io_stream_get_buffer(dma_rx);
     while (loop_times && !stop)
     {
         for (j = 0; (j < test_buffers) && !stop; j++)
         {
-            struct channel_buffer *buffer_rx_test = io_stream_get_buffer(dma_rx);
 
             if (!buffer_rx_test)
             {
                 printf("Buffer request timeout\n");
                 goto force_exit;
             }
-
-            buffers_rx_test[j % 32] = buffer_rx_test;
             memset(buffer_rx_test->buffer, -1, sizeof(iq_buffer) * rx_test_size);
             io_read_stream_device(dma_rx, buffer_rx_test, rx_test_size * sizeof(iq_buffer));
+            buffer_rx_test = io_stream_get_buffer(dma_rx);
             // io_finish_stream_local(dma_rx);
         }
-
-        if ((loop_times % 100) == 0)
+        if ((loop_times % valid_interval) == 0)
         {
             io_sync_stream_device(dma_rx);
-            validate_data(buffers_rx_test[0], test_size, j);
+            validate_data(buffer_rx_test, test_size, j, 0);
         }
         loop_times--;
     }
+    printf("\n");
 exit:
     io_sync_stream_device(dma_rx);
 force_exit:
@@ -153,7 +157,7 @@ force_exit:
     return 0;
 }
 
-
-int main(int argc, char **argv){
+int main(int argc, char **argv)
+{
     return main_rx(argc, argv);
 }

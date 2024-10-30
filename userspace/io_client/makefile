@@ -1,7 +1,7 @@
 
 # Thanks to Job Vranish (https://spin.atomicobject.com/2016/08/26/makefile-c-projects/)
 INSTALL_CMD := bash deploy.sh
-TARGET_EXEC := test_app
+TARGET_EXEC := io_client
 CROSS_COMPILE = 
 SYSROOT = /home/orgleaf/works/xilinx/sysroot/sysroots/x86_64-petalinux-linux
 CC := $(CROSS_COMPILE)gcc
