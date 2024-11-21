@@ -147,7 +147,9 @@ static int client_stream_channel(int sockfd)
     io_context *ctx = io_create_context();
     io_stream_device *device;
     const int flag = 1;
-    setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(int));
+    if(setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(int)) < 0 ) {
+        error("Failed to set TCP_NODELAY for stream channel");
+    }
     // setsockopt(device->fd, IPPROTO_TCP, TCP_CORK, &flag, sizeof(flag));
 
     if (!client_finish_handshake(sockfd))

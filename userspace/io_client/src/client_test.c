@@ -56,6 +56,9 @@ int validate_data(struct channel_buffer *buffer_rx, int test_size, int k, int j)
     int i;
     int check_value;
     int err = 0;
+    char print_buf[256];
+    int offset = 0;
+
     for (i = 0; i < test_size; i++)
     {
         int value = *((int *)&buffer_rx->buffer[i]);
@@ -68,16 +71,14 @@ int validate_data(struct channel_buffer *buffer_rx, int test_size, int k, int j)
              pos < MIN(i + 10, test_size);
              pos++)
         {
-            // printf("%d ", pos);
-            if (pos == i)
-                printf("<");
-            printf("%d", *((int *)&buffer_rx->buffer[pos]));
-            if (pos == i)
-                printf(">");
-            printf(" ");
+            sprintf(print_buf, "%d ", *((int *)&buffer_rx->buffer[pos]));
+            printf("%s", print_buf);
+            if(pos < i) offset += strlen(print_buf);
         }
         printf("\n");
 
+        printf("%*s", offset, "");
+        printf("^ != %d\n", check_value);
         break;
     }
 
@@ -98,7 +99,7 @@ int main_rx(io_context *ctx)
     io_mapped_device *map_dev = (io_mapped_device *)io_add_mapped_device(ctx, "/dev/tc");
     int test_buffers = 1, j = 0;
     struct channel_buffer *buffers_rx_test[32];
-    int test_size = 1024 * 1, loop_times = 10000000;
+    int test_size = 1024 * 2, loop_times = 10000000;
 
     int validate = 1000, valid_ok_count = 0;
 
@@ -112,6 +113,7 @@ int main_rx(io_context *ctx)
     io_write_mapped_device(map_dev, 5, 0);
 
     io_stream_device *dma_rx = (io_stream_device *)io_add_stream_device(ctx, "/dev/streamio_rx_0");
+    io_stream_device *dma_tx = (io_stream_device *)io_add_stream_device(ctx, "/dev/streamio_tx_0");
 
     int rx_test_size = test_size; // 256 + 128;
 
@@ -129,7 +131,7 @@ int main_rx(io_context *ctx)
                 printf("Buffer request timeout\n");
                 goto exit;
             }
-            memset(buffer_rx_test->buffer, -1, sizeof(iq_buffer) * rx_test_size);
+            memset(buffer_rx_test->buffer, -2, sizeof(iq_buffer) * rx_test_size);
             io_read_stream_device(dma_rx, buffer_rx_test, sizeof(iq_buffer) * test_size);
 
             if (validate_data(buffer_rx_test, test_size, i, j) < 0)

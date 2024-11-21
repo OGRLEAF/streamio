@@ -245,7 +245,7 @@ int client_cmd_write_stream_inf(io_stream_device *d, int sockfd)
         }
         else
         {
-            printf("Failed to sync with write stream %d\n", start_cmd);
+            fprintf(stderr, "\nFailed to sync with write stream %d\n", start_cmd);
         }
         if (send(sockfd, &(uint8_t){1}, 1, 0) == -1) // check if client stop
             break;
@@ -302,24 +302,24 @@ int client_cmd_read_stream_inf(io_stream_device *d, int sockfd)
             .sync = 0};
 
     // launch read
-    struct channel_buffer *ch_buffer = io_stream_get_buffer(d);
+    struct channel_buffer *ch_buffer; 
     
-    for (int i = 0; i < 32; i++)
-    {
-        memset(ch_buffer, -1, stream_size);
-        io_read_stream_device(d, (void *)ch_buffer->buffer, stream_size);
-        ch_buffer = io_stream_get_buffer(d);
-    }
+    // for (int i = 0; i < 32; i++)
+    // {
+    //     ch_buffer = io_stream_get_buffer(d);
+    //     printf("buffer addr = %p\n", ch_buffer);
+    //     memset(ch_buffer, -1, stream_size);
+    //     io_read_stream_device(d, (void *)ch_buffer->buffer, stream_size);
+        
+    // }
     printf("client_cmd_read_stream_inf: read started\n");
     while (1)
     {
 
         ch_buffer = io_stream_get_buffer(d);
         io_sync_stream_device(d);
-
-        // validate_data(ch_buffer, 1024, 0);
-
-        send_size = 1024 * 4;
+        // printf("buffer addr = %p\n", ch_buffer);
+        send_size = 1024 * 2 * sizeof(iq_buffer);
         iov[0].iov_base = &start_cmd;
         iov[0].iov_len = sizeof(start_cmd);
 
@@ -337,8 +337,8 @@ int client_cmd_read_stream_inf(io_stream_device *d, int sockfd)
         ctrl.s.accu_size += n;
         ctrl.s.stream_n += 1;
 
-        memset(ch_buffer, -1, stream_size);
-        io_read_stream_device(d, (void *)ch_buffer->buffer, stream_size);
+        memset(ch_buffer->buffer, -1, stream_size);
+        io_read_stream_device(d, ch_buffer, stream_size);
     }
 
     ctrl.s.stop = 1;

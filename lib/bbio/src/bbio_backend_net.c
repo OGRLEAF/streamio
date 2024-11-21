@@ -76,12 +76,12 @@ int io_net_call_create(io_net_context *ctx, enum cmd_call_type type)
         send(ctx->fd, value, size, SOCK_FLAGS);              \
     }
 
-#define io_net_call_startv(ctx, iov, type)                     \
-    {                                                          \
-        uint8_t type_value = ((uint8_t)type); \
-        _call_print("Call %s %d\n", #type, type);              \
-        iov.iov_base = &type_value;                            \
-        iov.iov_len = sizeof(uint8_t);                         \
+#define io_net_call_startv(ctx, iov, type)        \
+    {                                             \
+        uint8_t type_value = ((uint8_t)type);     \
+        _call_print("Call %s %d\n", #type, type); \
+        iov.iov_base = &type_value;               \
+        iov.iov_len = sizeof(uint8_t);            \
     }
 #define io_net_call_paramv(ctx, iov, size, value)            \
     {                                                        \
@@ -168,16 +168,24 @@ static uint32_t io_read_stream_net_basic(io_stream_device *device, void *data, u
     if (start_cmd == (CALL_READ_STREAM << 1))
     {
         n = recv(sockfd, &recv_size, sizeof(recv_size), 0);
-        printf("recieve size = %d / %d\n", recv_size, size);
+        // printf("recieve size = %d / %d\n", recv_size, size);
     }
     else
     {
-        printf("Failed to sync with read stream %d %d \n", start_cmd, n);
+        fprintf(stderr, "Failed to sync with read stream %d %d \n", start_cmd, n);
     }
 
-    n = recv(sockfd, (data), recv_size, 0);
-    return n;
+    int remain_size = recv_size;
+    while (remain_size > 0)
+    {
+        n = recv(sockfd, data, remain_size, 0);
 
+        remain_size -= n;
+        // printf("packet = %d remain=%d\n", n, remain_size);
+        data += n;
+    }
+
+    return recv_size;
 }
 
 static uint32_t io_read_stream_net(io_stream_device *device, void *data, uint32_t size)
@@ -213,7 +221,7 @@ static uint32_t io_read_stream_net(io_stream_device *device, void *data, uint32_
         }
         else
         {
-            printf("Failed to sync with read stream %d %d \n", start_cmd, n);
+            fprintf(stderr, "Failed to sync with read stream start_cmd=%d len=%d \n", start_cmd, n);
         }
     }
     if (size > state->remain_recv_size)
@@ -297,8 +305,6 @@ io_mapped_device *io_open_mapped_net(io_context *ctx, char *file_path, size_t si
         printf("Server connect failed.\n");
         return NULL;
     }
-    setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(int));
-    setsockopt(sockfd, SOL_SOCKET, SO_ZEROCOPY, &flag, sizeof(flag));
 
     // handshake
     printf("io_open_mapped_net: Handshake...");
@@ -310,6 +316,10 @@ io_mapped_device *io_open_mapped_net(io_context *ctx, char *file_path, size_t si
     if (remotefd < 1)
         return NULL;
     printf("io_open_mapped_net: Remote device %s open ok fd=%d\n", file_path, remotefd);
+
+
+    setsockopt(remotefd, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(int));
+    setsockopt(remotefd, SOL_SOCKET, SO_ZEROCOPY, &flag, sizeof(flag));
 
     device = (io_mapped_device *)malloc(sizeof(io_mapped_device));
     device->device.path = file_path;
@@ -355,7 +365,7 @@ io_stream_device *io_open_stream_net(io_context *ctx, char *file_path)
         printf("Server connect failed.\n");
         return NULL;
     }
-    setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(int));
+
     // setsockopt(sockfd, SOL_SOCKET, SO_ZEROCOPY, &flag, sizeof(flag));
 
     // handshake
@@ -366,6 +376,8 @@ io_stream_device *io_open_stream_net(io_context *ctx, char *file_path)
 
     remotefd = io_open_remote_device(sockfd, file_path, 0);
 
+    setsockopt(remotefd, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(int));
+    
     if (remotefd < 1)
         return NULL;
     printf("io_open_stream_net: Remote device %s open ok fd=%d\n", file_path, remotefd);
@@ -375,7 +387,7 @@ io_stream_device *io_open_stream_net(io_context *ctx, char *file_path)
     device->device.path = file_path;
 
     device->ch.write_stream = io_write_stream_net;
-    device->ch.read_stream = io_read_stream_net;
+    device->ch.read_stream = io_read_stream_net_basic;
     device->ch.sync_stream = io_sync_stream_deivce_net;
 
     state = malloc(sizeof(struct net_device_state));
@@ -384,10 +396,9 @@ io_stream_device *io_open_stream_net(io_context *ctx, char *file_path)
 
     device->ch.private = (void *)state;
 
-        // io_net_call_start(device, CALL_READ_STREAM);
+    // io_net_call_start(device, CALL_READ_STREAM);
     state->handshaked = 0;
     state->remain_recv_size = 0;
-
 
     device->ch.alloc_buffer = io_stream_alloc_buffer_net;
 

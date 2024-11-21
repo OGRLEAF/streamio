@@ -16,6 +16,7 @@
 #include <sys/mman.h>
 #include <poll.h>
 #include <bbio_h.h>
+#include <sys/param.h>
 
 #define TEST_SIZE 512
 
@@ -51,11 +52,15 @@ int main_tx(int argc, char **argv)
     return 0;
 }
 
-int validate_data(struct channel_buffer *buffer_rx, int test_size, int j, int verbose)
+
+int validate_data(struct channel_buffer *buffer_rx, int test_size, int k, int j)
 {
     int i;
     int check_value;
     int err = 0;
+    char print_buf[256];
+    int offset = 0;
+
     for (i = 0; i < test_size; i++)
     {
         int value = *((int *)&buffer_rx->buffer[i]);
@@ -63,29 +68,23 @@ int validate_data(struct channel_buffer *buffer_rx, int test_size, int j, int ve
         if (value == check_value)
             continue;
         err = 1;
-        printf("Data validate error at %d - [%d]:  Expect %d, recieve %d \n", j, i + 1, check_value, value);
+        printf("Data validate error at %d %d- [%d]:  Expect %d, recieve %d \n", j, k, i + 1, check_value, value);
+        for (int pos = (i > 10 ? i - 10 : 0);
+             pos < MIN(i + 10, test_size);
+             pos++)
+        {
+            sprintf(print_buf, "%d ", *((int *)&buffer_rx->buffer[pos]));
+            printf("%s", print_buf);
+            if(pos < i) offset += strlen(print_buf);
+        }
+        printf("\n");
+
+        printf("%*s", offset, "");
+        printf("^ != %d\n", check_value);
         break;
     }
 
-    if (!err)
-    {
-        if (verbose)
-            printf("Buffer %d len=%d Validate ok\n", j, test_size);
-        putc('-', stderr);
-    }
-    else
-    {
-        putc('X', stderr);
-        if (verbose)
-        {
-            for (i = 0; i < test_size; i++)
-            {
-                int value = *((int *)&buffer_rx->buffer[i]);
-                printf("%d ", value);
-            }
-            printf("\n");
-        }
-    }
+    return -err;
 }
 
 void sigint(int a)
@@ -97,6 +96,10 @@ void sigint(int a)
 int main_rx(int argc, char **argv)
 {
     int i, ret, err = 0;
+    int test_buffers = 32, j = 0;
+    int test_size = 32 * 1024, loop_times = 10000, valid_interval = 100;
+    int valid_ok_count = 0;
+
     io_context *ctx = io_create_context(); //_net_context("192.168.2.5", 12345);
 
     printf("sizeof pointer=%ld enum=%ld\n", sizeof(uint32_t *), sizeof(PROXY_BUSY));
@@ -105,8 +108,6 @@ int main_rx(int argc, char **argv)
     printf("Add devices\n");
 
     io_mapped_device *map_dev = (io_mapped_device *)io_add_mapped_device(ctx, "/dev/tc");
-    int test_buffers = 32, j = 0;
-    int test_size = 32 * 1024, loop_times = 1000, valid_interval = 100;
 
     // perform reset
     io_write_mapped_device(map_dev, 5, 3);
@@ -123,11 +124,31 @@ int main_rx(int argc, char **argv)
 
     signal(SIGINT, sigint);
 
-    struct channel_buffer *buffer_rx_test = io_stream_get_buffer(dma_rx);
+    struct channel_buffer *buffer_rx_test; //  = io_stream_get_buffer(dma_rx);
+
+    for (i = 0; i < 32; i++)
+    {
+        buffer_rx_test = io_stream_get_buffer(dma_rx);
+        // printf("buffer addr = %p\n", buffer_rx_test);
+        memset(buffer_rx_test, -1, sizeof(iq_buffer) * rx_test_size);
+        io_read_stream_device(dma_rx, (void *)buffer_rx_test->buffer, rx_test_size * sizeof(iq_buffer));
+    }
+
     while (loop_times && !stop)
     {
         for (j = 0; (j < test_buffers) && !stop; j++)
         {
+            buffer_rx_test = io_stream_get_buffer(dma_rx);
+
+            // io_sync_stream_device(dma_rx);
+            if(validate_data(buffer_rx_test, test_size, j, 0) < 0) {
+                goto exit;
+            }else {
+                if(((valid_ok_count % valid_interval) + 1) == valid_interval) {
+                    //  fputc('-', stderr);
+                }
+                valid_ok_count++;
+            }
 
             if (!buffer_rx_test)
             {
@@ -136,14 +157,10 @@ int main_rx(int argc, char **argv)
             }
             memset(buffer_rx_test->buffer, -1, sizeof(iq_buffer) * rx_test_size);
             io_read_stream_device(dma_rx, buffer_rx_test, rx_test_size * sizeof(iq_buffer));
-            buffer_rx_test = io_stream_get_buffer(dma_rx);
+            // buffer_rx_test = io_stream_get_buffer(dma_rx);
             // io_finish_stream_local(dma_rx);
         }
-        if ((loop_times % valid_interval) == 0)
-        {
-            io_sync_stream_device(dma_rx);
-            validate_data(buffer_rx_test, test_size, j, 0);
-        }
+
         loop_times--;
     }
     printf("\n");
