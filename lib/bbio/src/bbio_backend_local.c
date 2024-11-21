@@ -116,7 +116,7 @@ struct channel_buffer *io_stream_zc_buffer_local(io_stream_device *device, uint3
     local_buffer_d *local_buffer = (local_buffer_d *)device->ch.private;
     struct channel_buffer *next_buffer = &local_buffer->buffer_ctx->channel_buffer[local_buffer->current_buffer_id];
 
-    if (next_buffer->status == PROXY_QUEUED || next_buffer->status == PROXY_TIMEOUT)
+    if (next_buffer->status != PROXY_NO_ERROR)
     {
         // wait for the last buffer finished, it means we are faster than dma
         ioctl(device->fd, FINISH_XFER, &local_buffer->current_buffer_id);

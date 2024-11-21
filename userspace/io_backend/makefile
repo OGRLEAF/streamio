@@ -1,4 +1,6 @@
-include ../../Makefile.variable
+MAKE_ENV_INCLUDE := ../../Makefile.variable
+
+include $(MAKE_ENV_INCLUDE)
 # Thanks to Job Vranish (https://spin.atomicobject.com/2016/08/26/makefile-c-projects/)
 TARGET_EXEC := io_backend
 # SYSROOT = /home/orgleaf/Works/adrv9001-project/software/sysroot

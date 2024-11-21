@@ -1,4 +1,6 @@
-include $(PWD)/../../Makefile.variable
+MAKE_ENV_INCLUDE := ../../Makefile.variable
+
+include $(MAKE_ENV_INCLUDE)
 # Thanks to Job Vranish (https://spin.atomicobject.com/2016/08/26/makefile-c-projects/)
 
 TARGET_EXEC := test_app
@@ -64,7 +66,7 @@ $(BUILD_DIR)/%.cpp.o: %.cpp
 
 .PHONY: clean
 clean:
-	rm -r $(BUILD_DIR)
+	rm -rf $(BUILD_DIR)
 
 install: $(BUILD_DIR)/$(TARGET_EXEC)
 	$(INSTALL_CMD) $(BUILD_DIR)/$(TARGET_EXEC)

@@ -45,3 +45,5 @@
 envs.sh
 .ssh
 */build*
+
+build
