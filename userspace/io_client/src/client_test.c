@@ -98,7 +98,9 @@ int main_rx(io_context *ctx)
 
     io_mapped_device *map_dev = (io_mapped_device *)io_add_mapped_device(ctx, "/dev/tc");
     int test_buffers = 1, j = 0;
+    
     struct channel_buffer *buffers_rx_test[32];
+    
     int test_size = 1024 * 2, loop_times = 10000000;
 
     int validate = 1000, valid_ok_count = 0;
@@ -115,7 +117,7 @@ int main_rx(io_context *ctx)
     io_stream_device *dma_rx = (io_stream_device *)io_add_stream_device(ctx, "/dev/streamio_rx_0");
     io_stream_device *dma_tx = (io_stream_device *)io_add_stream_device(ctx, "/dev/streamio_tx_0");
 
-    int rx_test_size = test_size; // 256 + 128;
+    int rx_test_size = test_size;
 
     signal(SIGINT, sigint);
 
@@ -124,7 +126,16 @@ int main_rx(io_context *ctx)
     {
         for (j = 0; (j < test_buffers) && !stop; j++)
         {
+            struct channel_buffer *buffer_tx_test = io_stream_get_buffer(dma_tx); 
             struct channel_buffer *buffer_rx_test = io_stream_get_buffer(dma_rx);
+            
+            for(int k=0; k < test_size; k++ ) {
+                buffer_rx_test->buffer[k].I0 = k;
+                buffer_tx_test->buffer[k].Q0 = k;
+            }
+
+            // io_write_stream_device(dma_tx, buffer_tx_test, sizeof(iq_buffer) * test_size);
+
 
             if (!buffer_rx_test)
             {
@@ -157,6 +168,7 @@ exit:
 force_exit:
 
     io_close_context(ctx);
+    return 0;
 }
 
 int main(int argc, char **argv)

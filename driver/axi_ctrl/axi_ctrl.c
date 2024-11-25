@@ -297,18 +297,18 @@ static struct platform_driver transmit_control_driver = {
     .remove = transmit_control_remove,
 };
 
-int __init data_mux_drv_init(void)
+int __init stream_axi_ctrl_init(void)
 {
     return platform_driver_register(&transmit_control_driver);
 }
 
-void __exit data_mux_drv_exit(void)
+void __exit stream_axi_ctrl_exit(void)
 {
     platform_driver_unregister(&transmit_control_driver);
 }
 
-module_init(data_mux_drv_init);
-module_exit(data_mux_drv_exit);
+module_init(stream_axi_ctrl_init);
+module_exit(stream_axi_ctrl_exit);
 
 MODULE_AUTHOR("Guoyansong");
 MODULE_DESCRIPTION("Data Mux Driver");

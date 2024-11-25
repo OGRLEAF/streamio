@@ -224,9 +224,9 @@ static void wait_for_transfer(struct dma_proxy_channel *pchannel_p)
 	 */
 	// wait_for_completion(&pchannel_p->bdtable[bdindex].cmp); //
 	// if (ch_timeout_ms < 0)
-	// 	timeout = wait_for_completion_interruptible(&pchannel_p->bdtable[bdindex].cmp);
+	timeout = wait_for_completion_interruptible(&pchannel_p->bdtable[bdindex].cmp);
 	// else
-	timeout = wait_for_completion_timeout(&pchannel_p->bdtable[bdindex].cmp, timeout);
+	// timeout = wait_for_completion_timeout(&pchannel_p->bdtable[bdindex].cmp, timeout);
 	status = dma_async_is_tx_complete(pchannel_p->channel_p, pchannel_p->bdtable[bdindex].cookie, NULL, NULL);
 
 	if (timeout == 0)
@@ -395,38 +395,6 @@ static int release(struct inode *ino, struct file *file)
  * which buffer to use for the transfer.The BD in this case is only a s/w
  * structure for the proxy driver, not related to the hw BD of the DMA.
  */
-static long ioctl(struct file *file, unsigned int cmd, unsigned long arg)
-{
-	struct dma_proxy_channel *pchannel_p = (struct dma_proxy_channel *)file->private_data;
-	if (pchannel_p == NULL)
-	{
-		pr_err("pchannel_p is NULL\n");
-		return -EINVAL;
-	}
-	/* Get the bd index from the input argument as all commands require it
-	 */
-	if (copy_from_user(&pchannel_p->bdindex, (int *)arg, sizeof(pchannel_p->bdindex)))
-		return -EINVAL;
-	// pr_info("ioctl %d bdindex %d\n", cmd, pchannel_p->bdindex);
-	/* Perform the DMA transfer on the specified channel blocking til it completes
-	 */
-	switch (cmd)
-	{
-	case START_XFER:
-		start_transfer(pchannel_p);
-		break;
-	case FINISH_XFER:
-		wait_for_transfer(pchannel_p);
-		break;
-	case XFER:
-		start_transfer(pchannel_p);
-		wait_for_transfer(pchannel_p);
-		break;
-	}
-
-	return 0;
-}
-
 static long ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct dma_proxy_channel *pchannel_p = (struct dma_proxy_channel *)file->private_data;
@@ -784,10 +752,9 @@ void __exit dma_proxy_exit(void)
 	platform_driver_unregister(&dma_proxy_driver);
 }
 
+module_init(dma_proxy_init);
+module_exit(dma_proxy_exit);
 
-module_init(dma_proxy_init)
-	module_exit(dma_proxy_exit)
-
-		MODULE_AUTHOR("Xilinx, Inc.");
+MODULE_AUTHOR("Xilinx, Inc.");
 MODULE_DESCRIPTION("DMA Proxy Prototype");
 MODULE_LICENSE("GPL v2");
