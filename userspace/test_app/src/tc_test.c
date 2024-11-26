@@ -94,7 +94,7 @@ int main_tx_file(int argc, char **argv)
 
     int data_size = 0;
     int packet_loops = 1;
-    int packet_size = 20480;
+    int packet_size = 1024 * 16;
     
     uint16_t start = (uint16_t)time(NULL);
 
@@ -141,7 +141,7 @@ int main_tx_file(int argc, char **argv)
         }
         else
         {
-            packet_loops = data_size % packet_size;
+            packet_loops = data_size / packet_size + 1;
         }
         // Read data to buffer
         input_temp = (uint32_t *)malloc(sizeof(uint32_t) * data_size);
@@ -154,6 +154,9 @@ int main_tx_file(int argc, char **argv)
             }
         }
         input_temp -= data_size;
+        fclose(input_f);
+    } else {
+        return -1;
     }
 
     ctx = io_create_context(); // Create streamio context;
@@ -167,31 +170,37 @@ int main_tx_file(int argc, char **argv)
     io_write_mapped_device(map_dev, 7, 0b00010000); // bb data sel reg
 
     io_write_mapped_device(map_dev, 5, 0b00);
-    printf("Test data start from 0x%X packet_loops=%d packet_size=%d\n", *input_temp, packet_loops, packet_size);
+    printf("Test data start from 0x%X packet_loops=%d packet_size=%d totalsize=%d\n", *input_temp, packet_loops, packet_size, data_size);
 
     output_temp = (uint32_t *)malloc(sizeof(uint32_t) * packet_loops * packet_size);
 
-    for (int j = 0; j < packet_loops; j++)
+    int j = 0;
+    while (data_size > 0)
     {
+        int tx_size = MIN(packet_size, data_size);
+
         buffer_test = io_stream_get_buffer(dma_tx);
 
-        memcpy((uint32_t *)buffer_test->buffer, (uint32_t *)(input_temp + j * packet_size), packet_size * sizeof(iq_buffer));
-        io_write_stream_device(dma_tx, buffer_test, packet_size * sizeof(iq_buffer));
+        memcpy((uint32_t *)buffer_test->buffer, (uint32_t *)(input_temp + j ), tx_size * sizeof(iq_buffer));
+        io_write_stream_device(dma_tx, buffer_test, tx_size * sizeof(iq_buffer));
 
         buffer_test_rx = io_stream_get_buffer(dma_rx);
         io_read_stream_device(dma_rx, buffer_test_rx, packet_size * sizeof(iq_buffer));
-
-        // Copy last recieve buffer
+        // io_sync_stream_device(dma_tx);
         io_sync_stream_device(dma_rx);
-        memcpy((uint32_t *)(output_temp + j * packet_size), (uint32_t *)(buffer_test_rx->buffer), packet_size * sizeof(iq_buffer));
+        
+        memcpy((uint32_t *)(output_temp + j), (uint32_t *)(buffer_test_rx->buffer), tx_size * sizeof(iq_buffer));
+
+        data_size -= tx_size;
+        j += tx_size;
     }
     io_sync_stream_device(dma_tx);
     io_sync_stream_device(dma_rx);
 
-    printf("last output data 0x%.8X\n", (uint32_t)output_temp[packet_size * packet_loops - 1]);
+    printf("last output data 0x%.8X\n", (uint32_t)output_temp[j - 1]);
 
-    printf("test data expect 0x%.4X%.4X\n", (uint16_t)~input_temp[packet_size * packet_loops - 1],
-                                            (uint16_t)input_temp[packet_size * packet_loops - 1]);
+    printf("test data expect 0x%.4X%.4X\n", (uint16_t)~input_temp[j- 1],
+                                            (uint16_t)input_temp[j - 1]);
 
     io_write_mapped_device(map_dev, 5, 0b11);
     io_close_context(ctx);
@@ -204,9 +213,9 @@ int main_tx_file(int argc, char **argv)
             fprintf(stderr, "Open output file %s failed %d\n", arguments.output_file_path, output_f);
             return -1;
         }
-        for (i = 0; i < data_size; i++)
+        for (i = 0; i < j; i++)
         {
-            fprintf(output_f, "0X%X\n", output_temp[i]);
+            fprintf(output_f, "%d\n", output_temp[i]);
         }
         fclose(output_f);
     }

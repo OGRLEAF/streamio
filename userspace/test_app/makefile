@@ -73,6 +73,10 @@ install: $(BUILD_DIR)/$(TARGET_EXEC)
 # root@100.64.0.19:/home/orgleaf/workspace/rootfs/home/root/
 
 
+.PHONY: test_file
+test_file:
+	python generate_test_file.py
+	$(INSTALL_CMD) test_wave_file.txt
 
 # Include the .d makefiles. The - at the front suppresses the errors of missing
 # Makefiles. Initially, all the .d files will be missing, and we don't want those
