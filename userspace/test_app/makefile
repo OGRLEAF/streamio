@@ -41,7 +41,8 @@ LDFLAGS += -L../lib/ -Wl,-rpath,lib/ -lm -lstreamio
 # The -MMD and -MP flags together generate Makefiles for us!
 # These files will have .d instead of .o as the output.
 CPPFLAGS := $(INC_FLAGS) -MMD -MP  
-CFLAGS := -D__x86_64__ -D__LP64__ --sysroot=$(SYSROOT)
+CFLAGS := -D__x86_64__ -D__LP64__ --sysroot=$(SYSROOT) \
+		  -DBUFFER_WITH_CONFIG
 
 # test:
 # 	echo $(LIB_OBJS) 
@@ -68,14 +69,14 @@ $(BUILD_DIR)/%.cpp.o: %.cpp
 clean:
 	rm -rf $(BUILD_DIR)
 
-install: $(BUILD_DIR)/$(TARGET_EXEC)
+install: $(BUILD_DIR)/$(TARGET_EXEC) 
 	$(INSTALL_CMD) $(BUILD_DIR)/$(TARGET_EXEC)
+	$(INSTALL_CMD) ../lib/libstreamio.so /lib
 # root@100.64.0.19:/home/orgleaf/workspace/rootfs/home/root/
-
 
 .PHONY: test_file
 test_file:
-	python generate_test_file.py
+	# python generate_test_file.py
 	$(INSTALL_CMD) test_wave_file.txt
 
 # Include the .d makefiles. The - at the front suppresses the errors of missing
