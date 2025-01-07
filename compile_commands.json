@@ -1,0 +1,40 @@
+[
+  {
+    "arguments": [
+      "/media/orgleaf/MainPool/Apps/Xilinx/Vitis/2021.1/gnu/aarch64/lin/aarch64-linux/bin/aarch64-linux-gnu-gcc",
+      "-I./src",
+      "-I/home/orgleaf/Works/adrv9001-project/software/streamio/userspace/lib",
+      "-I/home/orgleaf/Works/adrv9001-project/software/streamio/userspace/lib/buffer",
+      "-I/home/orgleaf/Works/adrv9001-project/software/streamio/userspace/lib/bbio",
+      "-D__x86_64__",
+      "-D__LP64__",
+      "--sysroot=/home/orgleaf/Works/adrv9001-project/software/sysroot/sysroots/x86_64-petalinux-linux",
+      "-c",
+      "-o",
+      "build/./src/arg_parse.c.o",
+      "src/arg_parse.c"
+    ],
+    "directory": "/home/orgleaf/Works/adrv9001-project/software/streamio/userspace/test_app",
+    "file": "/home/orgleaf/Works/adrv9001-project/software/streamio/userspace/test_app/src/arg_parse.c",
+    "output": "/home/orgleaf/Works/adrv9001-project/software/streamio/userspace/test_app/build/src/arg_parse.c.o"
+  },
+  {
+    "arguments": [
+      "/media/orgleaf/MainPool/Apps/Xilinx/Vitis/2021.1/gnu/aarch64/lin/aarch64-linux/bin/aarch64-linux-gnu-gcc",
+      "-I./src",
+      "-I/home/orgleaf/Works/adrv9001-project/software/streamio/userspace/lib",
+      "-I/home/orgleaf/Works/adrv9001-project/software/streamio/userspace/lib/buffer",
+      "-I/home/orgleaf/Works/adrv9001-project/software/streamio/userspace/lib/bbio",
+      "-D__x86_64__",
+      "-D__LP64__",
+      "--sysroot=/home/orgleaf/Works/adrv9001-project/software/sysroot/sysroots/x86_64-petalinux-linux",
+      "-c",
+      "-o",
+      "build/./src/tc_test.c.o",
+      "src/tc_test.c"
+    ],
+    "directory": "/home/orgleaf/Works/adrv9001-project/software/streamio/userspace/test_app",
+    "file": "/home/orgleaf/Works/adrv9001-project/software/streamio/userspace/test_app/src/tc_test.c",
+    "output": "/home/orgleaf/Works/adrv9001-project/software/streamio/userspace/test_app/build/src/tc_test.c.o"
+  }
+]

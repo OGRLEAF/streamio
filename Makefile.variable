@@ -1,6 +1,12 @@
+
 PROJECT_PATH := $(dir $(lastword $(MAKEFILE_LIST)))
+
 SYSROOT = /home/orgleaf/Works/adrv9001-project/software/sysroot/sysroots/x86_64-petalinux-linux
-KERN_DIR = /home/orgleaf/Works/adrv9001-project/software/linux-xlnx-xlnx_rebase_v6.6_LTS_merge_6.6.50/
-CROSS_COMPILE = aarch64-linux-gnu-
-INSTALL_CMD := bash $(PROJECT_PATH)/deploy.sh
-TARGET_ARCH = arm64
+KERN_DIR = /home/orgleaf/Works/buildroot/buildroot-2024.11/output/build/linux-custom
+
+INSTALL_CMD := bash $(PROJECT_PATH)/scripts/deploy.sh
+
+TOOLCHAIN_PATH=/home/orgleaf/Works/adrv9001-project/software/buildroot_sdk/aarch64-buildroot-linux-gnu_sdk-buildroot/bin/
+
+TARGET_ARCH := arm64
+CROSS_COMPILE := $(TOOLCHAIN_PATH)aarch64-buildroot-linux-gnu-

@@ -31,7 +31,6 @@ io_context *io_create_context()
 void io_close_context(io_context *ctx)
 {
     int current_devices = io_count_devices(ctx);
-    printf("Current devices: %d\n", current_devices);
     io_device **start_device = ctx->devices;
     io_device *this_device;
     while ((*start_device) != NULL)

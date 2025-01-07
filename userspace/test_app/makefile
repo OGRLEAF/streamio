@@ -71,7 +71,6 @@ clean:
 
 install: $(BUILD_DIR)/$(TARGET_EXEC) 
 	$(INSTALL_CMD) $(BUILD_DIR)/$(TARGET_EXEC)
-	$(INSTALL_CMD) ../lib/libstreamio.so /lib
 # root@100.64.0.19:/home/orgleaf/workspace/rootfs/home/root/
 
 .PHONY: test_file

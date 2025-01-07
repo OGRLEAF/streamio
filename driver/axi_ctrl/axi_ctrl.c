@@ -253,9 +253,9 @@ static int transmit_control_probe(struct platform_device *pdev)
         return PTR_ERR(dev_data.regs);
     }
     dev_data.phy_regs = platform_get_resource(pdev, IORESOURCE_IO, 0);
-    dev_info(dev, "phy_regs: %p", dev_data.phy_regs);
+    dev_dbg(dev, "phy_regs: %p", dev_data.phy_regs);
     dev_data.phy_regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-    dev_info(dev, "phy_regs: %p", dev_data.phy_regs);
+    dev_dbg(dev, "phy_regs: %p", dev_data.phy_regs);
     // if (IS_ERR(dev_data.phy_regs))
     // {
     //     return PTR_ERR(dev_data.phy_regs);

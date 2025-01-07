@@ -12,6 +12,7 @@ typedef struct _local_buffer_description
     struct channel_buffer_context *buffer_ctx;
     uint32_t buffer_count;
     uint32_t current_buffer_id;
+    uint8_t data_avaliable;
 } local_buffer_d;
 
 IO_FD io_open_local(io_context *ctx, char *file, int flag)
@@ -113,19 +114,23 @@ static uint32_t io_write_stream_local(io_stream_device *device, void *data, uint
 struct channel_buffer *io_stream_zc_buffer_local(io_stream_device *device, uint32_t flag)
 {
     // get next buffer
+    enum proxy_status old_status;
     local_buffer_d *local_buffer = (local_buffer_d *)device->ch.private;
-    struct channel_buffer *next_buffer = &local_buffer->buffer_ctx->channel_buffer[local_buffer->current_buffer_id];
+    uint32_t next_buffer_id = local_buffer->current_buffer_id;
+    struct channel_buffer *next_buffer = &local_buffer->buffer_ctx->channel_buffer[next_buffer_id];
 
     if (next_buffer->status != PROXY_NO_ERROR)
     {
+        old_status = next_buffer->status;
         // wait for the last buffer finished, it means we are faster than dma
-        ioctl(device->fd, FINISH_XFER, &local_buffer->current_buffer_id);
+        ioctl(device->fd, FINISH_XFER, &next_buffer_id);
+
     }
     if(next_buffer->status == PROXY_TIMEOUT) {
         return NULL;
     }
 
-    local_buffer->current_buffer_id = (local_buffer->current_buffer_id + 1) % local_buffer->buffer_count;
+    local_buffer->current_buffer_id = (next_buffer_id + 1) % local_buffer->buffer_count;
     return next_buffer;
 }
 

@@ -31,16 +31,95 @@ StreamIO的用户Linux库、SDK及说明文档。
     └── lib/libstreamio.so 
 ```
 
-## 镜像和使用方法
+## SD卡镜像和使用方法
 
 将镜像写入SD卡后启动。
 
+### 连接开发板
+
+将开发板连接到有DHCP服务的局域网中，首先通过串口连接电脑，串口已经配置了自动登录。
+
+使用`ip a`命令查看开发板的IP地址。
+
+在setup.sh里，编辑`IP=xxx.xxx.xxx.xxx`为开发板获取到的IP地址。
+
+执行：
+
+```bash
+bash setup.sh
+```
+
+配置SSH登录密钥。
+
+配置完成后，将输出的最后一行内容粘贴至开发板串口并执行。
+
+执行：
+```bash
+bash setup.sh
+```
+登录到开发板。
+
+<!--
 在初次启动后用户目录可以看到如下文件：
 
 ```
 lib
-io_backend
+test_app
 ```
+
+test_app即example/目录下编译好的示例程序
+--> 
+
+
+
+### 下载FPGA和刷新驱动
+
+启动后，执行`streamio-app`命令刷新FPGA并加载驱动。
+
+如果DMA卡住，执行该命令可以恢复至开机状态。个别情况可能出现内核报错，重启开发板即可。
+
+
+有两种方式可以重新下载FPGA：
+1. 将bitstream文件上传到/lib/firmware/xilinx/streamio/streamio.bin，执行`streamio-app`。也可以将bitstream放到其他目录下，执行`streamio-app -b <bitstream目录位置>`加载文件，如`streamio-app -b ./streamio.bin`。
+2. 首先执行`streamio-app drv`命令重新加载驱动使驱动处于初始化状态，然后直接在Vivado里下载FPGA，下载完成后，再次执行`streamio-app drv`重新加载驱动。
+
+
+## DEMO使用说明
+
+DEMO提供了一个包含基本读取文件、DMA传输和接收、写入文件的基本例子，用于演示将数据通过PL处理后再回收的过程。
+
+DEMO的编译方法：在`example/`目录下执行
+
+```bash
+make && make install
+```
+
+如果网络配置正确，`make install`会自动将编译的程序上传至开发板。
+
+在DEMO里，输入输出文件均为每行32bit十进制整数，`example/generate_test_file.py`提供了一个生成输入文件的示例。
+
+DEMO的使用方法：
+
+```bash
+test_app -i test_wave_file.txt -o output.txt
+```
+
+### PL DEMO
+
+PL的DEMO包含一个
+RTL核和一个示例的数据处理和控制模块，将来自和输入DMA的AXIS数据包转换为连续的数据流。
+
+数据流接口包括三个信号：
+
+- xxx_strobe (xxx_valid) 主到从，数据有效信号
+- xxx_data 主到从，数据
+- xxx_ready 从到主，准备信号
+
+若从模块准备好接受数据，将xxx_ready置为有效。
+
+当有数据来临时，xxx_strobe（xxx_valid）变为有效，若此时xxx_ready也有效，则在时钟上升沿传递一次数据。
+
+控制信号来自`baseband_sys_axi.v`，其中包含一系列32bit的寄存器。
 
 ## SDK使用说明
 
@@ -233,10 +312,10 @@ PL端工程主要部分为baseband_sys.v。
 
 ### AXI-Lite和AXIS的演示代码说明
 
-工程包含了基本的功能的例子，在baseband_sys.v内，包含一个AXI-Lite读写的寄存器组和一个AXIS接口的累加器，并演示了通过读写寄存器复位累加器和外部的FIFO，并能够通过寄存器配置累加器的上限。
+工程包含了基本的功能的例子，在baseband_sys.v内，包含一个AXI-Lite读写的寄存器组、两个AXIS从、一个AXIS主。
 
 将寄存器引出的示例（`baseband_sys_axi.v`文件的末尾处）
-```verilg
+```verilog
 	// Implement memory mapped register select and read logic generation
 	  assign S_AXI_RDATA = (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 8'h0) ? slv_reg0 : 
 	                       (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 8'h1) ? slv_reg1 : 
@@ -251,18 +330,64 @@ PL端工程主要部分为baseband_sys.v。
 	// Add user logic here
     assign reg_state_example = slv_reg5;
     assign axis_packet_length = slv_reg6;
-	// User logic endsS
+	// User logic ends
 ```
 
 如上代码使寄存器0~8可供读写，其中寄存器5、6分别用于写入复位信号和数据流长度。
 
-输入输出接口使用AXIS协议，示例中的`baseband_sys_axis.v`文件是一个数字累加器的示例。
 
+AXIS从模块将DMA发送的AXIS数据转换为连续数据流
+- `axis0_dout`：32bit数据
+- `axis0_dout_strobe`：数据有效信号
+- `axis0_bb_data0_ready`：准备接收数据信号，AXIS从模块在`axis0_bb_data0_ready`有效时，才会输出数据
+
+
+```verilog
+   /*
+     * Add your module here
+     */
+
+    // DSPs DDS example
+    dds_compiler_0 dds_compiler_0_inst_0 (
+      .aclk(s00_axis_aclk),                       // input wire aclk
+      .aresetn(s00_axis_aresetn),
+        
+      // from DMA
+      .s_axis_phase_tready(axis0_bb_data0_ready),
+      .s_axis_phase_tvalid(axis0_dout_strobe),  // input wire s_axis_phase_tvalid
+      .s_axis_phase_tdata({axis0_dout[8:0], 8'b0} ),    // input wire [15 : 0] s_axis_phase_tdata
+      
+      // output to FIFO
+      .m_axis_data_tvalid(bb_data0_out_strobe),    // output wire m_axis_data_tvalid
+      .m_axis_data_tdata(bb_data0_out),      // output wire [31 : 0] m_axis_data_tdata
+      .m_axis_data_tready(bb_data0_fifo_ready)           
+    );
+    
+    // Reverse bits example
+    assign bb_data1_out[C_S00_AXIS_TDATA_WIDTH-1 -: 16] = ~axis0_dout[15:0];
+    assign bb_data1_out[15:0] = axis0_dout[15:0];
+    assign bb_data1_out_strobe = axis0_dout_strobe;
+    assign axis0_bb_data1_ready = bb_data1_fifo_ready;
+    
+    // Select
+    assign bb_data_out        = bb_data_sel == 4'h0 ? bb_data0_out:
+                                               4'h1 ? bb_data1_out:
+                                              {C_S00_AXIS_TDATA_WIDTH{1'bz}};      
+                                                                   
+    assign bb_data_out_strobe = bb_data_sel == 4'h0 ? bb_data0_out_strobe:
+                                               4'h1 ? bb_data1_out_strobe:
+                                                   1'bz;
+    
+    assign bb_data0_fifo_ready = bb_data_sel == 4'h0 ? bb_data_fifo_ready : 1'b0;
+    assign bb_data1_fifo_ready = bb_data_sel == 4'h1 ? bb_data_fifo_ready : 1'b0;
+    
+    assign bb_data_fifo_ready = !fifo_ch0_full; 
+```
 
 
 ### 注意事项
 
-1. 受Xilinx DMA驱动的限制，每次DMA读出长度需要大于一次AXIS传输的长度，否则会造成DMA核卡住。因此需要特别注意提前确定读出的长度。
-2. Address Editor不要更改。
+1. 受Xilinx DMA驱动的限制，每次DMA读出长度需要大于一次AXIS传输的长度，否则会造成DMA核卡死。因此需要明确读出长度。
+2. 不要修改Address Editor。
 
 **任何不明确的地方、问题和BUG请及时沟通。**

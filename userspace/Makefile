@@ -1,9 +1,9 @@
-SUBDIRS = ../lib test_app io_backend io_client
+SUBDIRS = ../lib test_app 
 MAKE_ENV_INCLUDE = ../Makefile.variable
 
 RELEASE_PACK = ../build
 
-subdirs:
+subdirs:	
 	for dir in $(SUBDIRS); do \
 		$(MAKE) -C $$dir; \
 	done
@@ -13,26 +13,32 @@ release: subdirs
 	mkdir -p $(RELEASE_PACK)
 
 	# PACK header files and dynamic lib as SDK
-	mkdir -p $(RELEASE_PACK)/sdk
+	mkdir -p $(RELEASE_PACK)/lib
 
 	# Files on the board
 	mkdir -p $(RELEASE_PACK)/user/lib
 
 	# Remote dynamic lib
-	cp -r lib/* $(RELEASE_PACK)/sdk
+	cp -r lib/* $(RELEASE_PACK)/lib
 
 	# Add .so for user
 	cp -r lib/libstreamio.so $(RELEASE_PACK)/user/lib
 
 	# Server file
-	cp -r io_backend/build/io_backend $(RELEASE_PACK)/user
+	# cp -r io_backend/build/io_backend $(RELEASE_PACK)/user
 
 	# Place test_app as example project
 	cp -r test_app $(RELEASE_PACK)/example
 
+	cp -r Makefile.variable.build $(RELEASE_PACK)/Makefile.variable
+
 	# Add README
 	cp README.md $(RELEASE_PACK)/
+	
+	cp setup.sh $(RELEASE_PACK)/
 
+	cp deploy.sh $(RELEASE_PACK)/
+ 
 clean:
 	for dir in $(SUBDIRS); do \
 		$(MAKE) -C $$dir clean; \

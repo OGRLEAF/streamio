@@ -110,7 +110,7 @@
 #include "dma_tx.h"
 
 #include <linux/module.h>
-#include <linux/version.h>
+/* #include <linux/version.h> */
 #include <linux/kernel.h>
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
@@ -137,7 +137,7 @@ MODULE_LICENSE("GPL");
  * transmit and receive channnels when multiple channels exist.
  */
 static unsigned internal_test = 0;
-module_param(internal_test, int, S_IRUGO);
+/* module_param(internal_test, int, S_IRUGO); */
 
 static int ch_timeout_ms = 3000;
 module_param(ch_timeout_ms, int, S_IRUGO);
@@ -173,7 +173,7 @@ static void start_transfer(struct dma_proxy_channel *pchannel_p)
 	sg_dma_address(&pchannel_p->bdtable[bdindex].sglist) = pchannel_p->bdtable[bdindex].dma_handle;
 	sg_dma_len(&pchannel_p->bdtable[bdindex].sglist) = pchannel_p->buffer_table_p[bdindex].length;
 
-	// pr_info("DMA buffer %d phy addr = %px <- %px",bdindex, pchannel_p->bdtable[bdindex].sglist.dma_address, pchannel_p->bdtable[bdindex].dma_handle);
+	/* pr_info("DMA buffer %d phy addr = %px <- %px",bdindex, pchannel_p->bdtable[bdindex].sglist.dma_address, pchannel_p->bdtable[bdindex].dma_handle); */
 
 	chan_desc = dma_device->device_prep_slave_sg(pchannel_p->channel_p, &pchannel_p->bdtable[bdindex].sglist, 1,
 												 pchannel_p->direction, flags, NULL);
@@ -343,7 +343,7 @@ static int local_open(struct inode *ino, struct file *file)
 	 * This is not working and causes an issue that may need investigation in the
 	 * DMA driver at the lower level.
 	 */
-	dma_device->device_terminate_all(pchannel_p->channel_p);
+	/* dma_device->device_terminate_all(pchannel_p->channel_p); */
 	for (i = 0; i < BUFFER_COUNT; i++)
 	{
 		pchannel_p->buffer_table_p[i].status = PROXY_NO_ERROR;
@@ -397,6 +397,7 @@ static int release(struct inode *ino, struct file *file)
  */
 static long ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
+    int ret;
 	struct dma_proxy_channel *pchannel_p = (struct dma_proxy_channel *)file->private_data;
 	if (pchannel_p == NULL)
 	{
@@ -405,9 +406,16 @@ static long ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	}
 	/* Get the bd index from the input argument as all commands require it
 	 */
-	if (copy_from_user(&pchannel_p->bdindex, (int *)arg, sizeof(pchannel_p->bdindex)))
+	// pr_info("dma proxy io_ct %d  l %p\n", &pchannel_p->bdindex, arg);
+    
+    if (ret = copy_from_user(&pchannel_p->bdindex, (int *)arg, sizeof(pchannel_p->bdindex)) < 0)
+    {
+        pr_err("Failed to copy from user ret=%d\n", ret);
+
 		return -EINVAL;
-	// pr_info("ioctl %d bdindex %d\n", cmd, pchannel_p->bdindex);
+
+    }
+	/* pr_info("ioctl %d bdindex %d\n", cmd, pchannel_p->bdindex); */
 	/* Perform the DMA transfer on the specified channel blocking til it completes
 	 */
 	switch (cmd)

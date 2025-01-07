@@ -18,7 +18,6 @@ int io_append_device(io_context *ctx, io_device *device)
     io_device **new_devices = (io_device **)malloc(sizeof(io_device *) * (current_devices + 2));
     memset(new_devices, 0, sizeof(io_device *) * (current_devices + 2));
     int i;
-    printf("Current devices: %d\n", current_devices);
     if (current_devices < MAX_DEVICE)
     {
         for (i = 0; i < current_devices; i++)
