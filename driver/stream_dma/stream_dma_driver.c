@@ -173,7 +173,7 @@ static void start_transfer(struct dma_proxy_channel *pchannel_p)
 	sg_dma_address(&pchannel_p->bdtable[bdindex].sglist) = pchannel_p->bdtable[bdindex].dma_handle;
 	sg_dma_len(&pchannel_p->bdtable[bdindex].sglist) = pchannel_p->buffer_table_p[bdindex].length;
 
-	/* pr_info("DMA buffer %d phy addr = %px <- %px",bdindex, pchannel_p->bdtable[bdindex].sglist.dma_address, pchannel_p->bdtable[bdindex].dma_handle); */
+	/* pr_info("DMA buffer %d length %d", bdindex, pchannel_p->buffer_table_p[bdindex].length); */
 
 	chan_desc = dma_device->device_prep_slave_sg(pchannel_p->channel_p, &pchannel_p->bdtable[bdindex].sglist, 1,
 												 pchannel_p->direction, flags, NULL);
@@ -218,13 +218,13 @@ static void wait_for_transfer(struct dma_proxy_channel *pchannel_p)
 	struct channel_buffer *current_buffer = &pchannel_p->buffer_table_p[bdindex];
 	struct proxy_bd *current_bd = &pchannel_p->bdtable[bdindex];
 
-	current_buffer->status = PROXY_BUSY;
-
 	/* Wait for the transaction to complete, or timeout, or get an error
 	 */
 	// wait_for_completion(&pchannel_p->bdtable[bdindex].cmp); //
 	// if (ch_timeout_ms < 0)
-	timeout = wait_for_completion_interruptible(&pchannel_p->bdtable[bdindex].cmp);
+    current_buffer->status = PROXY_BUSY;
+    /* timeout = wait_for_completion_interruptible(&pchannel_p->bdtable[bdindex].cmp); */
+    timeout = wait_for_completion_interruptible_timeout(&pchannel_p->bdtable[bdindex].cmp, timeout);
 	// else
 	// timeout = wait_for_completion_timeout(&pchannel_p->bdtable[bdindex].cmp, timeout);
 	status = dma_async_is_tx_complete(pchannel_p->channel_p, pchannel_p->bdtable[bdindex].cookie, NULL, NULL);
@@ -237,12 +237,12 @@ static void wait_for_transfer(struct dma_proxy_channel *pchannel_p)
 			status = pchannel_p->channel_p->device->device_tx_status(pchannel_p->channel_p, pchannel_p->bdtable[bdindex].cookie, &state);
 			// dmaengine_terminate_sync(pchannel_p->channel_p);
 		}
-		printk(KERN_ERR "DMA %d timed out with status=%d compete=%d res=%u\n", bdindex, status, current_bd->cmp.done, state.residue);
+		pr_err("DMA %d timed out with status=%d compete=%d res=%u\n", bdindex, status, current_bd->cmp.done, state.residue);
 	}
 	else if (status != DMA_COMPLETE)
 	{
 		pchannel_p->buffer_table_p[bdindex].status = PROXY_ERROR;
-		printk(KERN_ERR "DMA returned completion callback status of: %s(%d)\n",
+		pr_err("DMA returned completion callback status of: %s(%d)\n",
 			   status == DMA_ERROR ? "error" : "in progress", status);
 	}
 	else
@@ -343,7 +343,7 @@ static int local_open(struct inode *ino, struct file *file)
 	 * This is not working and causes an issue that may need investigation in the
 	 * DMA driver at the lower level.
 	 */
-	/* dma_device->device_terminate_all(pchannel_p->channel_p); */
+	dma_device->device_terminate_all(pchannel_p->channel_p);
 	for (i = 0; i < BUFFER_COUNT; i++)
 	{
 		pchannel_p->buffer_table_p[i].status = PROXY_NO_ERROR;
@@ -404,17 +404,18 @@ static long ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		pr_err("pchannel_p is NULL\n");
 		return -EINVAL;
 	}
+    pchannel_p->bdindex = arg;
 	/* Get the bd index from the input argument as all commands require it
 	 */
 	// pr_info("dma proxy io_ct %d  l %p\n", &pchannel_p->bdindex, arg);
-    
-    if (ret = copy_from_user(&pchannel_p->bdindex, (int *)arg, sizeof(pchannel_p->bdindex)) < 0)
-    {
-        pr_err("Failed to copy from user ret=%d\n", ret);
+    /* ret = copy_from_user(&pchannel_p->bdindex, (int *)arg, sizeof(pchannel_p->bdindex)); */  
+    /* if (ret <= 0) */
+    /* { */
+    /*     pr_err("Failed to copy from user ret=%d\n", ret); */
 
-		return -EINVAL;
+		/* return -EINVAL; */
 
-    }
+    /* } */
 	/* pr_info("ioctl %d bdindex %d\n", cmd, pchannel_p->bdindex); */
 	/* Perform the DMA transfer on the specified channel blocking til it completes
 	 */

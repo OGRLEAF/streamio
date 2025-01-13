@@ -94,21 +94,22 @@ static uint32_t io_write_stream_local(io_stream_device *device, void *data, uint
     local_buffer_d *local_buffer = (local_buffer_d *)device->ch.private;
     struct channel_buffer *current_buffer = (struct channel_buffer *)data; // local_buffer->buffer_ctx->channel_buffer + local_buffer->current_buffer_id;
     int buffer_id = ((void *)current_buffer - (void *)local_buffer->buffer_ctx->channel_buffer) / sizeof(struct channel_buffer);
-    // fprintf(stderr, "Buffer %d len=%d status:%d -> ", buffer_id, size, current_buffer->status);
+    /* fprintf(stderr, "Buffer %d len=%d status:%d -> \n", buffer_id, size, current_buffer->status); */
     
     current_buffer->length = size;
     // zero copy support
-    if (((void *)current_buffer) == data)
-    {
-        // printf("zero copy\n");
-    }
-    else
-        memcpy(current_buffer->buffer, data, size);
+    /* if (((void *)current_buffer) == data) */
+    /* { */
+    /*     /1* printf("zero copy\n"); *1/ */
+    /* } */
+    /* else */
+        /* memcpy(current_buffer->buffer, data, size); */
 
     // start next transmition
-    ioctl(device->fd, START_XFER, &buffer_id);
+    ioctl(device->fd, START_XFER, buffer_id);
     // rolling buffer
     // local_buffer->current_buffer_id = (local_buffer->current_buffer_id + 1) % local_buffer->buffer_count;
+    return buffer_id;
 }
 
 struct channel_buffer *io_stream_zc_buffer_local(io_stream_device *device, uint32_t flag)
@@ -123,7 +124,8 @@ struct channel_buffer *io_stream_zc_buffer_local(io_stream_device *device, uint3
     {
         old_status = next_buffer->status;
         // wait for the last buffer finished, it means we are faster than dma
-        ioctl(device->fd, FINISH_XFER, &next_buffer_id);
+        printf("buffer no ready %d\n", old_status);
+        ioctl(device->fd, FINISH_XFER, next_buffer_id);
 
     }
     if(next_buffer->status == PROXY_TIMEOUT) {
@@ -142,7 +144,7 @@ io_mapped_device *io_open_mapped_local(io_context *ctx, char *file_path, size_t 
     if (fd < 1)
     {
         printf("Device %s open error %d\n", file_path, fd);
-        free(device);
+        /* free(device); */
         return NULL;
     }
     device = (io_mapped_device *)malloc(sizeof(io_mapped_device));
@@ -188,9 +190,9 @@ static void io_finish_stream_local(io_stream_device *device)
         if (ch->status != PROXY_NO_ERROR)
         {
 
-            // printf("Waiting for buffer %d finishing %d...", i, ch->status);
-            ioctl(device->fd, FINISH_XFER, &i);
-            // printf("%d\n", ch->status);
+            /* fprintf(stderr, "Waiting for buffer %d finishing %d...", i, ch->status); */
+            ioctl(device->fd, FINISH_XFER, i);
+            /* fprintf(stderr, "%d\n", ch->status); */
         }
     }
 }

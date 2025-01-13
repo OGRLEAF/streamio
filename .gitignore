@@ -47,3 +47,4 @@ envs.sh
 */build*
 
 build
+.ycm_extra_conf.py

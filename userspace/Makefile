@@ -24,9 +24,6 @@ release: subdirs
 	# Add .so for user
 	cp -r lib/libstreamio.so $(RELEASE_PACK)/user/lib
 
-	# Server file
-	# cp -r io_backend/build/io_backend $(RELEASE_PACK)/user
-
 	# Place test_app as example project
 	cp -r test_app $(RELEASE_PACK)/example
 
@@ -35,10 +32,9 @@ release: subdirs
 	# Add README
 	cp README.md $(RELEASE_PACK)/
 	
-	cp setup.sh $(RELEASE_PACK)/
+	cp -r ../scripts $(RELEASE_PACK)
 
-	cp deploy.sh $(RELEASE_PACK)/
- 
+.PHONY: clean
 clean:
 	for dir in $(SUBDIRS); do \
 		$(MAKE) -C $$dir clean; \

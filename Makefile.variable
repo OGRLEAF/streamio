@@ -2,7 +2,9 @@
 PROJECT_PATH := $(dir $(lastword $(MAKEFILE_LIST)))
 
 SYSROOT = /home/orgleaf/Works/adrv9001-project/software/sysroot/sysroots/x86_64-petalinux-linux
-KERN_DIR = /home/orgleaf/Works/buildroot/buildroot-2024.11/output/build/linux-custom
+# KERN_DIR = /home/orgleaf/Works/buildroot/buildroot-2024.11/output/build/linux-custom
+KERN_DIR = /home/orgleaf/works/xilinx/petalinux-project/tq15eg_base/build/tmp/work-shared/zynqmp-generic-xczu15eg/kernel-build-artifacts
+
 
 INSTALL_CMD := bash $(PROJECT_PATH)/scripts/deploy.sh
 

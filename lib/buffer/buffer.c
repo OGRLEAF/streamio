@@ -12,19 +12,19 @@ struct channel_buffer_context * buffer_allocate(int buffer_count, int channel_fd
     }
     /* struct buffer_mmap_space * mmap_space_alloc = (struct buffer_mmap_space *) malloc(sizeof(struct buffer_mmap_space)); */
     printf("buffer_map_space: %ld\n", sizeof(struct buffer_mmap_space));
-    struct buffer_mmap_space * mmap_space = (struct buffer_mmap_space * ) mmap(NULL, sizeof(struct buffer_mmap_space), 
-                                                                               PROT_READ | PROT_WRITE, MAP_SHARED, channel_fd, 0);
-    /* struct channel_buffer * channel_buffer = (struct channel_buffer *)mmap(NULL, sizeof(struct channel_buffer) * buffer_count, */
-    /*                                                         PROT_READ | PROT_WRITE, MAP_SHARED, channel_fd, 0); */
-    if(mmap_space == MAP_FAILED)
-    {
-        return NULL;
-    }
+    /* struct buffer_mmap_space * mmap_space = (struct buffer_mmap_space * ) mmap(NULL, sizeof(struct buffer_mmap_space), */ 
+    /*                                                                            PROT_READ | PROT_WRITE, MAP_SHARED, channel_fd, 0); */
+    struct channel_buffer * channel_buffer = (struct channel_buffer *)mmap(NULL, sizeof(struct channel_buffer) * buffer_count,
+                                                            PROT_READ | PROT_WRITE, MAP_SHARED, channel_fd, 0);
+    /* if(mmap_space == MAP_FAILED) */
+    /* { */
+    /*     return NULL; */
+    /* } */
 #ifdef BUFFER_CONTROL_FIELD
     mmap_space->buffer_count = buffer_count;
 #endif
     struct channel_buffer_context * context = (struct channel_buffer_context *) malloc(sizeof(struct channel_buffer_context));
-    context->channel_buffer = mmap_space->channel_buffers;
+    context->channel_buffer = channel_buffer; // mmap_space->channel_buffers;
     return context;
 }
 

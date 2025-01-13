@@ -1,4 +1,11 @@
 PROJECT_PATH := $(dir $(lastword $(MAKEFILE_LIST)))
-CROSS_COMPILE = aarch64-linux-gnu-
-INSTALL_CMD := bash $(PROJECT_PATH)/deploy.sh
-TARGET_ARCH = arm64
+
+SYSROOT = 
+KERN_DIR = 
+
+INSTALL_CMD := bash $(PROJECT_PATH)/scripts/deploy.sh
+
+TOOLCHAIN_PATH=
+
+TARGET_ARCH := arm64
+CROSS_COMPILE := $(TOOLCHAIN_PATH)aarch64-buildroot-linux-gnu-

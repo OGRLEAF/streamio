@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <signal.h>
 #include <fcntl.h>
 #include <time.h>
 #include <argp.h>
@@ -37,44 +36,66 @@ int main_tx_test(int argc, char **argv)
     struct channel_buffer *buffer_test_rx;
     int packet_loops = 2, j = 0;
 
-    int packet_size = 640;
-    uint16_t start = (uint16_t)time(NULL);
+    int packet_size = 10240;
+    int repack_size = 10240;
+    uint16_t start = 0;
+
+    start = (uint16_t)time(NULL);
 
     ctx = io_create_context(); // Create streamio context;
 
     map_dev = (io_mapped_device *)io_add_mapped_device(ctx, "/dev/tc");
-    dma_tx = (io_stream_device *)io_add_stream_device(ctx, "/dev/streamio_tx_0");
-    /* dma_rx = (io_stream_device *)io_add_stream_device(ctx, "/dev/streamio_rx_0"); */
+    dma_tx = (io_stream_device *)io_add_stream_device(ctx, "/dev/streamio_tx_1");
+    dma_rx = (io_stream_device *)io_add_stream_device(ctx, "/dev/streamio_rx_0");
 
     io_write_mapped_device(map_dev, 5, 0b11);
-    io_write_mapped_device(map_dev, 6, packet_size);
+    io_write_mapped_device(map_dev, 6, repack_size);
     io_write_mapped_device(map_dev, 7, 0b00010000); // bb data sel reg
 
     io_write_mapped_device(map_dev, 5, 0b00);
-    printf("Test data start from 0x%X\n", start);
 
+    printf("data start from %X\n", start );
     for (int j = 0; j < packet_loops; j++)
     {
         buffer_test = io_stream_get_buffer(dma_tx);
-        /* buffer_test_rx = io_stream_get_buffer(dma_rx); */
-        buffer_test->decode_time_stamp = 0xffffffff;
-        buffer_test->tx_time_stamp = 0xffffffff;
-        buffer_test->length = packet_size - 3 ;
+        memset(buffer_test, 0xff, BUFFER_IN_BYTES(buffer_test));
+        buffer_test->decode_time_stamp = start;
+        buffer_test->tx_time_stamp = 0x0f0f0f0f;
+        /* buffer_test->packet_length = packet_size; */ 
+        
+        BUFFER_LEN_SET(buffer_test, packet_size);
+
+
+        buffer_test_rx = io_stream_get_buffer(dma_rx);
+        buffer_test_rx->decode_time_stamp = -1;
+        buffer_test_rx->tx_time_stamp = -1;
+        
         for (i = 0; i < packet_size; i++)
         {
             /* buffer_test->buffer[i].Q0 = start; */
             /* buffer_test->buffer[i].I0 = start + i + j * packet_size; */
             buffer_test->buffer[i] = start + i + j * packet_size;
         }
+        
 
-        io_write_stream_device(dma_tx, buffer_test, packet_size * sizeof(buffer_word_t));
-        /* io_read_stream_device(dma_rx, buffer_test_rx, packet_size * sizeof(iq_buffer)); */
+        io_write_stream_device(dma_tx, buffer_test, BUFFER_IN_BYTES(buffer_test));
+        
+        io_read_stream_device(dma_rx, buffer_test_rx, 65536);
+
+        io_sync_stream_device(dma_tx);
+
+        io_sync_stream_device(dma_rx);
+
+        printf("buffer header\n\tdts = %d\n\ttts = %d\n\tpacket_size = %d\n",
+            buffer_test_rx->decode_time_stamp, buffer_test_rx->tx_time_stamp, buffer_test_rx->packet_length);
+        printf("%X - %X\n", (uint16_t)buffer_test_rx->buffer[0], 
+                                    (uint16_t)(buffer_test_rx->buffer[buffer_test_rx->packet_length - 1]));
+        printf("%X - %X\n", (uint16_t)buffer_test->buffer[0], 
+                                    (uint16_t)(buffer_test->buffer[buffer_test_rx->packet_length - 1]));
     }
-    /* io_sync_stream_device(dma_tx); */
-    /* io_sync_stream_device(dma_rx); */
-
-    /* printf("%X - %X\n", (uint16_t)buffer_test_rx->buffer[packet_size - 1].I0, (uint16_t)buffer_test_rx->buffer[packet_size - 1].Q0); */
-
+    
+   
+    
     printf("Test data end at 0x%X - 0x%X\n", (uint16_t)(start + packet_loops * packet_size - 1), (uint16_t) ~(start + packet_loops * packet_size - 1));
 
     io_write_mapped_device(map_dev, 5, 0b11);
