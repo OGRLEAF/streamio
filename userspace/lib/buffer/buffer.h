@@ -4,7 +4,6 @@
 #ifndef _H_BUFFER
 #define _H_BUFFER
 
-#define BUFFER_WITH_CONFIG
 
 #define BUFFER_SIZE (128 * 1024)	 /* must match driver exactly */
 #define BUFFER_COUNT TX_BUFFER_COUNT /* driver only */

@@ -285,6 +285,9 @@ static const struct of_device_id transmit_control_of_ids[] = {
     {
         .compatible = "xlnx,baseband-sys-1.0",
     },
+    {
+        .compatible = "xlnx,bb-sys-1.0",
+    },
     {}};
 
 static struct platform_driver transmit_control_driver = {

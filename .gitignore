@@ -48,4 +48,5 @@ envs.sh
 
 build
 .ycm_extra_conf.py
-./Makefile.variable
+
+/Makefile.variable
