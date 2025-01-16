@@ -105,7 +105,8 @@ static uint32_t io_write_stream_local(io_stream_device *device, void *data, uint
     /* else */
         /* memcpy(current_buffer->buffer, data, size); */
 
-    // start next transmition
+    // start next transmition0
+    
     ioctl(device->fd, START_XFER, buffer_id);
     // rolling buffer
     // local_buffer->current_buffer_id = (local_buffer->current_buffer_id + 1) % local_buffer->buffer_count;
@@ -124,7 +125,7 @@ struct channel_buffer *io_stream_zc_buffer_local(io_stream_device *device, uint3
     {
         old_status = next_buffer->status;
         // wait for the last buffer finished, it means we are faster than dma
-        printf("buffer no ready %d\n", old_status);
+        /* printf("buffer %d no ready %d\n", next_buffer_id, old_status); */
         ioctl(device->fd, FINISH_XFER, next_buffer_id);
 
     }
