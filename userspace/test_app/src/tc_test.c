@@ -17,9 +17,11 @@
 #include <bbio_h.h>
 #include <sys/param.h>
 #include <time.h>
+#include <math.h>
 #include "tc_test.h"
 
 #define TEST_SIZE 512
+#define BUFFER_IQ_BUFFER
 
 static int stop = 0;
 extern struct argp argp;
@@ -36,8 +38,8 @@ static int main_txrx_test(int argc, char **argv)
     struct channel_buffer *buffer_test_rx;
     int packet_loops = 2, j = 0;
 
-    int packet_size = 10240;
-    int repack_size = 10240;
+    int packet_size = 1024 * 40;
+    int repack_size = 1024;
     uint16_t start = 0;
 
     start = (uint16_t)time(NULL);
@@ -60,7 +62,7 @@ static int main_txrx_test(int argc, char **argv)
         buffer_test = io_stream_get_buffer(dma_tx);
         memset(buffer_test, 0xff, BUFFER_IN_BYTES(buffer_test));
         buffer_test->decode_time_stamp = start;
-        buffer_test->tx_time_stamp = 0x0f0f0f0f;
+        buffer_test->tx_time_stamp = j;
         /* buffer_test->packet_length = packet_size; */ 
         
         BUFFER_LEN_SET(buffer_test, packet_size);
@@ -112,54 +114,74 @@ int main_tx_test(int argc, char **argv)
     io_stream_device *dma_rx;
     struct channel_buffer *buffer_test;
     struct channel_buffer *buffer_test_rx;
-    int packet_loops = 1, j = 0;
+    int packet_loops = 10000, j = 0;
 
-    int packet_size = 10240;
-    int repack_size = 10240;
+    int packet_size = 1024 * 32;
+    int repack_size = 1024;
     uint16_t start = 0;
+    uint32_t points = 128;
 
     start = (uint16_t)time(NULL);
 
     ctx = io_create_context(); // Create streamio context;
 
     map_dev = (io_mapped_device *)io_add_mapped_device(ctx, "/dev/tc");
-    dma_tx = (io_stream_device *)io_add_stream_device(ctx, "/dev/axi_dma_0");
+    dma_tx = (io_stream_device *)io_add_stream_device(ctx, "/dev/axi_dma_1");
 
     io_write_mapped_device(map_dev, 5, 0b11);
     io_write_mapped_device(map_dev, 6, repack_size);
-    io_write_mapped_device(map_dev, 7, 0b00010000); // bb data sel reg
+    io_write_mapped_device(map_dev, 7, 0b00000000); // bb data sel reg
 
     io_write_mapped_device(map_dev, 5, 0b00);
 
-    printf("data start from %X\n", start );
+  
+    double delta =  (M_PI * 2) / points;
+    uint32_t phase = 0;
+
+    iq_buffer *data_copy = (iq_buffer *) malloc(sizeof(iq_buffer) * points);
+
+    for(i = 0;i < points;i++) {
+        data_copy[i].I0 = (short) (sin(i * delta ) * 10000.0);
+        data_copy[i].Q0 = (short) (cos(i * delta ) * 10000.0);
+    }
+
+    iq_buffer * iq;
+
     for (int j = 0; j < packet_loops; j++)
     {
         buffer_test = io_stream_get_buffer(dma_tx);
-        memset(buffer_test, 0xff, BUFFER_IN_BYTES(buffer_test));
-        buffer_test->decode_time_stamp = start;
-        buffer_test->tx_time_stamp = 0x0f0f0f0f;
-        /* buffer_test->packet_length = packet_size; */ 
+        /* memset(buffer_test, 0xff, BUFFER_IN_BYTES(buffer_test)); */
+        buffer_test->decode_time_stamp = j;
+        buffer_test->tx_time_stamp = j + 1; // 0x0f0f0f0f;
+        /* buffer_test->packet_length = j; // packet_size; */ 
         
         BUFFER_LEN_SET(buffer_test, packet_size);
 
-        for (i = 0; i < packet_size; i++)
+        for (i = 0; i < (packet_size - 3); i++)
         {
             /* buffer_test->buffer[i].Q0 = start; */
-            /* buffer_test->buffer[i].I0 = start + i + j * packet_size; */
-            buffer_test->buffer[i] = start + i + j * packet_size;
-            buffer_test->buffer[i] = buffer_test->buffer[i] | (buffer_test->buffer[i] << 16);
+            /* buffer_test->buffer[i].I0 = start+ i + j * packet_size; */
+
+            /* value_q = cos(phase) * (10000.0); */
+            *(buffer_test->buffer + i) = *((uint32_t*) (data_copy + (phase & 0b1111111)));
+            /* iq->Q0 = data_copy[(phase + (points >> 2))  & (0b1111111)]; */
+            /* iq->I0 = phase & 0xffffffff; */
+            /* iq->Q0 = i; */
+            /* buffer_test->buffer[i] = phase; */ 
+            phase += 1;
+           /* *(buffer_test->buffer + i) = *((uint32_t *) &iq); */ 
+
+            /* buffer_test->buffer[i] = buffer_test->buffer[i] | (buffer_test->buffer[i] << 16); */
         }
         
 
-        io_write_stream_device(dma_tx, buffer_test, BUFFER_IN_BYTES(buffer_test));
+        io_write_stream_device(dma_tx, buffer_test, (packet_size) * sizeof(buffer_word_t)); // BUFFER_IN_BYTES(buffer_test));
         
-
-        io_sync_stream_device(dma_tx);
-
         /* io_sync_stream_device(dma_rx); */
 
     }   
     
+    io_sync_stream_device(dma_tx);
 
     io_write_mapped_device(map_dev, 5, 0b11);
     io_close_context(ctx);
@@ -306,7 +328,7 @@ exit:
 
 int main(int argc, char **argv)
 {
-    return main_txrx_test(argc, argv);
-    /* return main_tx_test(argc, argv); */
+    /* return main_txrx_test(argc, argv); */
+    return main_tx_test(argc, argv);
     /* return main_tx_file(argc, argv); */
 }
