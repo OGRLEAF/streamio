@@ -180,7 +180,7 @@ static void start_transfer(struct dma_proxy_channel *pchannel_p)
 
 	if (!chan_desc)
 	{
-		printk(KERN_ERR "dmaengine_prep*() error\n");
+		pr_err("dmaengine_prep*() error\n");
 	}
 	else
 	{
@@ -196,7 +196,7 @@ static void start_transfer(struct dma_proxy_channel *pchannel_p)
 		pchannel_p->bdtable[bdindex].cookie = dmaengine_submit(chan_desc);
 		if (dma_submit_error(pchannel_p->bdtable[bdindex].cookie))
 		{
-			pr_err("Submit error\n");
+			pr_err("Buffer %d submit error\n", bdindex);
 			return;
 		}
 
@@ -321,7 +321,7 @@ static void test(struct dma_proxy *lp)
 static int mmap(struct file *file_p, struct vm_area_struct *vma)
 {
 	struct dma_proxy_channel *pchannel_p = (struct dma_proxy_channel *)file_p->private_data;
-	pr_info("Memory mapped size %d phy_addr=%px\n", vma->vm_end - vma->vm_start, pchannel_p->buffer_phys_addr);
+	/* pr_info("Memory mapped size %d phy_addr=%px\n", vma->vm_end - vma->vm_start, pchannel_p->buffer_phys_addr); */
 	return dma_mmap_coherent(pchannel_p->dma_device_p, vma,
 							 pchannel_p->buffer_table_p, pchannel_p->buffer_phys_addr,
 							 vma->vm_end - vma->vm_start);
@@ -397,7 +397,7 @@ static int release(struct inode *ino, struct file *file)
  */
 static long ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-    int ret;
+    /* int ret; */
 	struct dma_proxy_channel *pchannel_p = (struct dma_proxy_channel *)file->private_data;
 	if (pchannel_p == NULL)
 	{
@@ -684,7 +684,7 @@ int dma_proxy_probe(struct platform_device *pdev)
 	 */
 	for (i = 0; i < lp->channel_count; i++)
 	{
-		printk("Creating channel %s\r\n", lp->names[i]);
+		pr_info("Creating channel %s\r\n", lp->names[i]);
 		rc = create_channel(pdev, &lp->channels[i], lp->names[i], DMA_MEM_TO_DEV);
 
 		if (rc)

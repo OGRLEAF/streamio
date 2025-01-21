@@ -61,16 +61,18 @@ static int main_txrx_test(int argc, char **argv)
     {
         buffer_test = io_stream_get_buffer(dma_tx);
         memset(buffer_test, 0xff, BUFFER_IN_BYTES(buffer_test));
-        buffer_test->decode_time_stamp = start;
-        buffer_test->tx_time_stamp = j;
+        
+        buffer_test->header.decode_time_stamp = start;
+        buffer_test->header.tx_time_stamp = j;
         /* buffer_test->packet_length = packet_size; */ 
         
         BUFFER_LEN_SET(buffer_test, packet_size);
 
 
         buffer_test_rx = io_stream_get_buffer(dma_rx);
-        buffer_test_rx->decode_time_stamp = -1;
-        buffer_test_rx->tx_time_stamp = -1;
+        struct buffer_header * rx_header = &buffer_test_rx->header;
+        rx_header->decode_time_stamp = -1;
+        rx_header->tx_time_stamp = -1;
         
         for (i = 0; i < packet_size; i++)
         {
@@ -89,7 +91,7 @@ static int main_txrx_test(int argc, char **argv)
         io_sync_stream_device(dma_rx);
 
         printf("buffer header\n\tdts = %d\n\ttts = %d\n\tpacket_size = %d\n",
-            buffer_test_rx->decode_time_stamp, buffer_test_rx->tx_time_stamp, buffer_test_rx->packet_length);
+            rx_header->decode_time_stamp, rx_header->tx_time_stamp, rx_header->packet_length);
         /* printf("%X - %X\n", (uint16_t)buffer_test_rx->buffer[0], */ 
         /*                             (uint16_t)(buffer_test_rx->buffer[buffer_test_rx->packet_length - 1])); */
     }
@@ -111,10 +113,9 @@ int main_tx_test(int argc, char **argv)
     io_context *ctx;
     io_mapped_device *map_dev;
     io_stream_device *dma_tx;
-    io_stream_device *dma_rx;
     struct channel_buffer *buffer_test;
-    struct channel_buffer *buffer_test_rx;
-    int packet_loops = 10000, j = 0;
+    struct buffer_header * buffer_test_header;
+    int packet_loops = 200, j = 0;
 
     int packet_size = 1024 * 32;
     int repack_size = 1024;
@@ -140,44 +141,39 @@ int main_tx_test(int argc, char **argv)
 
     iq_buffer *data_copy = (iq_buffer *) malloc(sizeof(iq_buffer) * points);
 
+    double scale = 65535.0 / 2;
     for(i = 0;i < points;i++) {
-        data_copy[i].I0 = (short) (sin(i * delta ) * 10000.0);
-        data_copy[i].Q0 = (short) (cos(i * delta ) * 10000.0);
+        data_copy[i].I0 = (short) (sin(i * delta ) * scale);
+        data_copy[i].Q0 = (short) (cos(i * delta ) * scale);
     }
 
-    iq_buffer * iq;
 
     for (int j = 0; j < packet_loops; j++)
     {
         buffer_test = io_stream_get_buffer(dma_tx);
-        /* memset(buffer_test, 0xff, BUFFER_IN_BYTES(buffer_test)); */
-        buffer_test->decode_time_stamp = j;
-        buffer_test->tx_time_stamp = j + 1; // 0x0f0f0f0f;
-        /* buffer_test->packet_length = j; // packet_size; */ 
+        
+        buffer_test_header = &buffer_test->header;
+
+        buffer_test_header->decode_time_stamp = j;
+        buffer_test_header->tx_time_stamp = j + 1; // 0x0f0f0f0f;
         
         BUFFER_LEN_SET(buffer_test, packet_size);
 
-        for (i = 0; i < (packet_size - 3); i++)
+        for (i = 0; i < (packet_size); i++)
         {
             /* buffer_test->buffer[i].Q0 = start; */
             /* buffer_test->buffer[i].I0 = start+ i + j * packet_size; */
 
             /* value_q = cos(phase) * (10000.0); */
-            *(buffer_test->buffer + i) = *((uint32_t*) (data_copy + (phase & 0b1111111)));
-            /* iq->Q0 = data_copy[(phase + (points >> 2))  & (0b1111111)]; */
-            /* iq->I0 = phase & 0xffffffff; */
-            /* iq->Q0 = i; */
-            /* buffer_test->buffer[i] = phase; */ 
-            phase += 1;
-           /* *(buffer_test->buffer + i) = *((uint32_t *) &iq); */ 
-
-            /* buffer_test->buffer[i] = buffer_test->buffer[i] | (buffer_test->buffer[i] << 16); */
+            /* *(buffer_test->buffer + i) = *((uint32_t*) (data_copy + (phase & 0b1111111))); */
+            buffer_test->buffer[i] = phase & 0xffff; 
+            phase += 1 << 8;
         }
         
 
-        io_write_stream_device(dma_tx, buffer_test, (packet_size) * sizeof(buffer_word_t)); // BUFFER_IN_BYTES(buffer_test));
+        io_write_stream_device(dma_tx, buffer_test, BUFFER_IN_BYTES(buffer_test));
         
-        /* io_sync_stream_device(dma_rx); */
+        /* io_sync_stream_device(dma_tx); */
 
     }   
     
@@ -185,7 +181,6 @@ int main_tx_test(int argc, char **argv)
 
     io_write_mapped_device(map_dev, 5, 0b11);
     io_close_context(ctx);
-exit:   
     return 0;
 }
 

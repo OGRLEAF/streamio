@@ -37,14 +37,21 @@ enum proxy_status
 	PROXY_ERROR = 3,
 	PROXY_QUEUED = 4
 };
-struct channel_buffer
-{
-#ifdef BUFFER_WITH_CONFIG
+
+
+struct buffer_header {
     uint32_t  decode_time_stamp;
     uint32_t  tx_time_stamp;
     uint32_t  packet_length;
-	buffer_word_t buffer[_MAX_SAMPLES(buffer_word_t) - 3];
-#elif
+};
+
+
+struct channel_buffer
+{
+#ifdef BUFFER_WITH_CONFIG
+    struct buffer_header header;
+	buffer_word_t buffer[_MAX_SAMPLES(buffer_word_t) - (sizeof(struct buffer_header) / sizeof(buffer_word_t))];
+#else
 	buffer_word_t buffer[_MAX_SAMPLES(buffer_word_t)];
 #endif
 	enum proxy_status status;
@@ -70,13 +77,13 @@ struct channel_buffer_context
 };
 
 #ifdef BUFFER_WITH_CONFIG
-#define BUFFER_HEADER_SIZE 3
+#define BUFFER_HEADER_SIZE (sizeof(strcut buffer_header) / sizeof(buffer_word_t))
 #else
 #define BUFFER_HEADER_SIZE 0
 #endif
 
-#define BUFFER_LEN_SET(ch_bufp, len)  (ch_bufp->packet_length = len + BUFFER_HEADER_SIZE)
-#define BUFFER_IN_BYTES(ch_bufp) (ch_bufp->packet_length * sizeof(buffer_word_t))
+#define BUFFER_LEN_SET(ch_bufp, len)  (ch_bufp->header.packet_length = len)
+#define BUFFER_IN_BYTES(ch_bufp) (ch_bufp->header.packet_length * sizeof(buffer_word_t) + sizeof(struct buffer_header))
 
 struct channel_buffer_context *buffer_allocate(int buffer_count, int channel_fd);
 void buffer_release(struct channel_buffer_context *buffer_context);

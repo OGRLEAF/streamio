@@ -15,9 +15,16 @@
 #include <linux/ioctl.h>
 #include <linux/uaccess.h>
 #include <linux/poll.h>
+#include <linux/device.h>
 
 int streamio_drv_probe(struct platform_device *pdev)
 {
+    int ret;
+    struct dma_proxy *lp;
+    struct device * dev = &pdev->dev;
+    dev_info(dev, "stremaio drv probing"); 
+
+    lp = (struct dma_proxy *) devm_kmalloc(dev, sizeof(struct dma_proxy), GFP_KERNEL)
 }
 
 static const struct of_device_id streamio_of_ids[] = {
