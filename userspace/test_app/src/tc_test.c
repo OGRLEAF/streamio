@@ -215,7 +215,7 @@ int main_tx_file(int argc, char **argv)
         input_f = fopen(arguments.input_file_path, "r");
         if (input_f == NULL)
         {
-            fprintf(stderr, "Open input file %s failed %d\n", arguments.input_file_path, input_f);
+            fprintf(stderr, "Open input file %s failed %p\n", arguments.input_file_path, input_f);
             return -1;
         }
 
@@ -307,7 +307,7 @@ int main_tx_file(int argc, char **argv)
         output_f = fopen(arguments.output_file_path, "w");
         if (output_f == NULL)
         {
-            fprintf(stderr, "Open output file %s failed %d\n", arguments.output_file_path, output_f);
+            fprintf(stderr, "Open output file %s failed %p\n", arguments.output_file_path, output_f);
             return -1;
         }
         for (i = 0; i < j; i++)
