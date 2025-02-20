@@ -10,7 +10,7 @@ CXX := $(CROSS_COMPILE)gcc
 
 BUILD_DIR := ./build
 SRC_DIRS := ./src
-LIB_DIRS := ../lib/
+LIB_DIRS := ../../lib/
 
 LIB_DIRS := $(realpath $(LIB_DIRS))
 

@@ -36,10 +36,10 @@ static int main_txrx_test(int argc, char **argv)
     io_stream_device *dma_rx;
     struct channel_buffer *buffer_test;
     struct channel_buffer *buffer_test_rx;
-    int packet_loops = 2, j = 0;
+    int packet_loops = 1000, j = 0;
 
-    int packet_size = 1024 * 40;
-    int repack_size = 1024;
+    int packet_size = 1024 * 16;
+    int repack_size = 1024 * 16;
     uint16_t start = 0;
 
     start = (uint16_t)time(NULL);
@@ -84,7 +84,7 @@ static int main_txrx_test(int argc, char **argv)
 
         io_write_stream_device(dma_tx, buffer_test, BUFFER_IN_BYTES(buffer_test));
         
-        io_read_stream_device(dma_rx, buffer_test_rx, 65536);
+        io_read_stream_device(dma_rx, buffer_test_rx, 128 * 1024);
 
         io_sync_stream_device(dma_tx);
 
@@ -117,7 +117,7 @@ int main_tx_test(int argc, char **argv)
     struct buffer_header * buffer_test_header;
     int packet_loops = 200, j = 0;
 
-    int packet_size = 1024 * 32;
+    int packet_size = 1024 * 1;
     int repack_size = 1024;
     uint16_t start = 0;
     uint32_t points = 128;
@@ -137,7 +137,7 @@ int main_tx_test(int argc, char **argv)
 
   
     double delta =  (M_PI * 2) / points;
-    uint32_t phase = 0;
+    uint32_t phase = 1;
 
     iq_buffer *data_copy = (iq_buffer *) malloc(sizeof(iq_buffer) * points);
 
@@ -323,7 +323,8 @@ exit:
 
 int main(int argc, char **argv)
 {
-    /* return main_txrx_test(argc, argv); */
-    return main_tx_test(argc, argv);
+    return txrx_test_thread(argc, argv);
+    // return main_txrx_test(argc, argv);
+    // return main_tx_test(argc, argv);
     /* return main_tx_file(argc, argv); */
 }
