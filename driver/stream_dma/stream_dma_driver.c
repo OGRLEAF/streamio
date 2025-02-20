@@ -108,13 +108,18 @@
  */
 
 #include "dma_tx.h"
+#include "linux/atomic/atomic-instrumented.h"
+#include "linux/cleanup.h"
+#include "linux/irqreturn.h"
+#include "linux/printk.h"
+#include "linux/wait.h"
 
 #include <linux/module.h>
 /* #include <linux/version.h> */
 #include <linux/kernel.h>
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
-
+#include <linux/interrupt.h>
 #include <linux/device.h>
 #include <linux/fs.h>
 #include <linux/workqueue.h>
@@ -215,6 +220,7 @@ static void wait_for_transfer(struct dma_proxy_channel *pchannel_p)
 	struct dma_tx_state state;
 	enum dma_status status;
 	int bdindex = pchannel_p->bdindex;
+    int value; 
 	struct channel_buffer *current_buffer = &pchannel_p->buffer_table_p[bdindex];
 	struct proxy_bd *current_bd = &pchannel_p->bdtable[bdindex];
 
@@ -237,20 +243,28 @@ static void wait_for_transfer(struct dma_proxy_channel *pchannel_p)
 			status = pchannel_p->channel_p->device->device_tx_status(pchannel_p->channel_p, pchannel_p->bdtable[bdindex].cookie, &state);
 			// dmaengine_terminate_sync(pchannel_p->channel_p);
 		}
-		pr_err("DMA %d timed out with status=%d compete=%d res=%u\n", bdindex, status, current_bd->cmp.done, state.residue);
+		dev_err(pchannel_p->proxy_device_p, "DMA %d timed out with status=%d compete=%d res=%u\n", bdindex, status, current_bd->cmp.done, state.residue);
 	}
 	else if (status != DMA_COMPLETE)
 	{
 		pchannel_p->buffer_table_p[bdindex].status = PROXY_ERROR;
-		pr_err("DMA returned completion callback status of: %s(%d)\n",
+		dev_err(pchannel_p->proxy_device_p, "DMA returned completion callback status of: %s(%d)\n",
 			   status == DMA_ERROR ? "error" : "in progress", status);
 	}
 	else
 	{
 		status = pchannel_p->channel_p->device->device_tx_status(pchannel_p->channel_p, pchannel_p->bdtable[bdindex].cookie, &state);
 		pchannel_p->buffer_table_p[bdindex].status = PROXY_NO_ERROR;
-		pr_debug("DMA %d finished with status=%d compete=%d res=%u\n", bdindex, status, current_bd->cmp.done, state.residue);
+
+        value = atomic_dec_if_positive(&pchannel_p->wait_transfer_count);
+		pr_debug("DMA %d finished with status=%d compete=%d res=%u r=%d->%d\n",
+          bdindex, status, current_bd->cmp.done, state.residue, value, atomic_read(&pchannel_p->wait_transfer_count));
 	}
+}
+
+static void tasklet_handle_transfer(void)
+{
+    // handle transfer
 }
 
 /* The following functions are designed to test the driver from within the device
@@ -380,7 +394,7 @@ static int release(struct inode *ino, struct file *file)
 	 * This is not working and causes an issue that may need investigation in the
 	 * DMA driver at the lower level.
 	 */
-	dma_device->device_terminate_all(pchannel_p->channel_p);
+	// dma_device->device_terminate_all(pchannel_p->channel_p);
 	for (i = 0; i < BUFFER_COUNT; i++)
 	{
 		pchannel_p->buffer_table_p[i].status = PROXY_NO_ERROR;
@@ -436,7 +450,7 @@ static long ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	return 0;
 }
 
-static __poll_t dma_proxy_poll(struct file *file, struct poll_table_struct *p_wait_table)
+static __poll_t dma_proxy_buffer_poll(struct file *file, struct poll_table_struct *p_wait_table)
 {
 	uint t_mask = 0;
 	int i = 0;
@@ -457,9 +471,22 @@ static __poll_t dma_proxy_poll(struct file *file, struct poll_table_struct *p_wa
 			break;
 		}
 	}
-	pr_info("Poll mask 0x%X at channel %d\n", t_mask, i);
+	/*pr_info("Poll mask 0x%X at channel %d\n", t_mask, i);*/
 	return t_mask;
 }
+
+static __poll_t dma_proxy_poll(struct file *file, struct poll_table_struct *p_wait_table)
+{
+    uint t_mask = 0;
+	struct dma_proxy_channel *pchannel_p = (struct dma_proxy_channel *)file->private_data;
+    poll_wait(file, &pchannel_p->wait_q_h, p_wait_table);
+    if(atomic_read(&pchannel_p->wait_transfer_count)> 0) {
+        t_mask = POLLIN;
+        // pr_info("rx available")
+    }
+    return t_mask; 
+}
+
 
 static struct file_operations dm_fops = {
 	.owner = THIS_MODULE,
@@ -468,7 +495,21 @@ static struct file_operations dm_fops = {
 	.release = release,
 	.unlocked_ioctl = ioctl,
 	.mmap = mmap,
-	.poll = dma_proxy_poll};
+	.poll = dma_proxy_poll
+};
+
+
+irqreturn_t irq_handler(int irq, void *ptr)
+{
+    struct dma_proxy_channel * channel = (struct dma_proxy_channel *) ptr; 
+    // pr_info("IRQ! %d\n", atomic_inc_return(&channel->wait_transfer_count));
+    atomic_inc_return(&channel->wait_transfer_count);
+
+    wake_up_interruptible(&channel->wait_q_h);
+
+
+    return IRQ_RETVAL(IRQ_HANDLED);
+}
 
 /* Initialize the driver to be a character device such that is responds to
  * file operations.
@@ -635,6 +676,7 @@ static int create_channel(struct platform_device *pdev, struct dma_proxy_channel
 int dma_proxy_probe(struct platform_device *pdev)
 {
 	int rc, i;
+    unsigned int irq;
 	struct dma_proxy *lp;
 	struct device *dev = &pdev->dev;
 
@@ -689,8 +731,33 @@ int dma_proxy_probe(struct platform_device *pdev)
 
 		if (rc)
 			return rc;
+
+        irq = platform_get_irq(pdev, i);
+
+        if(irq < 0)
+        {
+            dev_warn(dev, "Interrupt not set\n");
+            
+        } else 
+        {
+            dev_info(dev, "get irq: %d\n", irq);
+            rc = devm_request_irq(dev, irq, irq_handler,  IRQF_SHARED | IRQF_TRIGGER_RISING, lp->names[i], (void*) &lp->channels[i]);
+            if(rc) {
+                dev_warn(dev, "Failed to register IRQ %s", lp->names[i]);
+            }
+            else {
+                lp->channels[i].irq = irq;
+                init_waitqueue_head(&lp->channels[i].wait_q_h);
+
+                atomic_set(&lp->channels[i].wait_transfer_count, 0);
+                
+                dev_info(dev, "IRQ %s registeried.", lp->names[i]);
+            }
+        }
+
 		total_count++;
 	}
+    
 
 	if (internal_test)
 		test(lp);
@@ -702,10 +769,11 @@ int dma_proxy_probe(struct platform_device *pdev)
 int dma_proxy_remove(struct platform_device *pdev)
 {
 	int i;
+    int irq;
 	struct device *dev = &pdev->dev;
 	struct dma_proxy *lp = dev_get_drvdata(dev);
 
-	printk(KERN_INFO "dma_proxy module exited\n");
+	pr_info("dma_proxy module exited\n");
 
 	/* Take care of the char device infrastructure for each
 	 * channel except for the last channel. Handle the last
@@ -713,6 +781,13 @@ int dma_proxy_remove(struct platform_device *pdev)
 	 */
 	for (i = 0; i < lp->channel_count; i++)
 	{
+        // irq = platform_get_irq(pdev, i);
+        // if(irq < 0) {
+        //
+        // }else {
+        //     // devm_free_irq(dev, irq, (void*)&lp->channels[i]);
+        // }
+        //
 		if (lp->channels[i].proxy_device_p)
 			cdevice_exit(&lp->channels[i]);
 		total_count--;

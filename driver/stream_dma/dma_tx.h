@@ -23,6 +23,7 @@
  * otherwise there may be issues when using cached memory.
  */
 
+#include "linux/wait.h"
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/string.h>
@@ -60,6 +61,7 @@ struct proxy_bd {
 	dma_addr_t dma_handle;
 	struct scatterlist sglist;
 };
+
 struct dma_proxy_channel {
 	struct channel_buffer *buffer_table_p;	/* user to kernel space interface */
 	dma_addr_t buffer_phys_addr;
@@ -75,6 +77,10 @@ struct dma_proxy_channel {
 	struct dma_chan *channel_p;				/* dma support */
 	u32 direction;						/* DMA_MEM_TO_DEV or DMA_DEV_TO_MEM */
 	int bdindex;
+
+    wait_queue_head_t wait_q_h;
+    unsigned int irq;
+    atomic_t wait_transfer_count;
 };
 
 struct dma_proxy {
