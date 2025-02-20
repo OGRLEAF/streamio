@@ -233,7 +233,7 @@ int io_close_stream_local(io_context *ctx, io_stream_device *device)
         return 0;
 
     local_buffer_d *local_buffer = (local_buffer_d *)device->ch.private;
-    io_finish_stream_local(device);
+    // io_finish_stream_local(device);
 
     buffer_release((struct channel_buffer_context *)local_buffer->buffer_ctx);
 
