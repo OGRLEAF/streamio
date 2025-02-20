@@ -323,8 +323,8 @@ exit:
 
 int main(int argc, char **argv)
 {
-    return txrx_test_thread(argc, argv);
-    // return main_txrx_test(argc, argv);
-    // return main_tx_test(argc, argv);
-    /* return main_tx_file(argc, argv); */
+    return txrx_test_thread(argc, argv); // TX &  RX data multithreading
+    // return main_txrx_test(argc, argv); // TX & RX in same thread
+    // return main_tx_test(argc, argv);   // RX only (For RF project)
+    /* return main_tx_file(argc, argv); */ // TX & RX from file to file
 }
