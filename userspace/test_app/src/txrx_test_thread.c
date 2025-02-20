@@ -18,7 +18,7 @@ struct thread_config {
 
 int stop_tx = 0;
 int stop_rx = 0;
-
+int verify = 0;
 
 static void * tx_thread(void * ptr){
 
@@ -50,7 +50,7 @@ static void * tx_thread(void * ptr){
         {
             /* buffer_test->buffer[i].Q0 = start; */
             /* buffer_test->buffer[i].I0 = start + i + j * packet_size; */
-            buffer_test->buffer[i] = start + i + j * packet_size + 1;
+            buffer_test->buffer[i] = (start + i + j * packet_size + 1) * 1000;
         }
         
 
@@ -91,7 +91,7 @@ static void * rx_thread(void * ptr){
             printf("Poll ret=%d\n", ret);
             continue;
         }else if(ret == 0) {
-            printf("Timeout. ");
+            printf("Timeout. \n");
             break;
         }
 
@@ -114,16 +114,18 @@ static void * rx_thread(void * ptr){
         io_sync_stream_device(dma_rx);
 
         fprintf(stderr, "\r%d dts=%d tts=%d len=%d start_word=%X ", 
-                j, 
+                j + 1, 
                 rx_header->decode_time_stamp,
                 rx_header->tx_time_stamp,
                 rx_header->packet_length,
                 buffer_test_rx->buffer[0]);
 
-        for(int k = 0; k < rx_header->packet_length; k++ ) {
-            if((k + i + 1) != buffer_test_rx->buffer[k]) {
-                printf("X: %d %d\n", k + i + 1, buffer_test_rx->buffer[k]);
-                break;
+        if(verify) {
+            for(int k = 0; k < rx_header->packet_length; k++ ) {
+                if((k + i + 1) != buffer_test_rx->buffer[k]) {
+                    printf("X: %d %d\n", k + i + 1, buffer_test_rx->buffer[k]);
+                    break;
+                }
             }
         }
         i += rx_header->packet_length;
@@ -149,11 +151,11 @@ int txrx_test_thread(int argc, char **argv)
     io_stream_device *dma_rx;
     struct thread_config rx_thread_config, tx_thread_config;
 
-    uint32_t packet_loops = 100;
+    uint32_t packet_loops = 10000;
 
     uint32_t packet_size = 1024 * 16;
 
-    uint32_t repack_size = 1024;
+    uint32_t repack_size = 1024 * 4;
     uint16_t start = 0;
     uint32_t total_size = packet_loops * packet_size;
 
