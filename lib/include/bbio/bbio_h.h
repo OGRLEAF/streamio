@@ -10,6 +10,10 @@
 
 #define MAX_DEVICE 4
 
+#define STREAM_DEVF_W_NOBLOCK (0b00000001)
+#define STREAM_DEVF_R_NOBLOCK (0b00000010)
+
+
 typedef int IO_FD;
 
 typedef struct _bbio_context_base io_context;
@@ -71,6 +75,7 @@ typedef struct _bbio_stream_device
     uint16_t buffer_n;
     // io_stream_buffer * buffer_pool;
     uint16_t current_buffer;
+    uint8_t flags;
 } io_stream_device;
 
 typedef struct _bbio_mapped_device

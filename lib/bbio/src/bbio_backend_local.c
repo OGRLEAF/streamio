@@ -218,6 +218,7 @@ io_stream_device *io_open_stream_local(io_context *ctx, char *file_path)
     device->ch.read_stream = io_write_stream_local;
     device->ch.alloc_buffer = io_stream_zc_buffer_local;
     device->ch.sync_stream = io_finish_stream_local;
+
     if (device->ch.private == NULL)
     {
         free(device);
