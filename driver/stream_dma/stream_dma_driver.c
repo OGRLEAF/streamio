@@ -107,6 +107,7 @@
  * https://github.com/Xilinx-Wiki-Projects/software-prototypes/tree/master/linux-user-space-dma
  */
 
+#include "asm-generic/poll.h"
 #include "dma_tx.h"
 #include "linux/atomic/atomic-instrumented.h"
 #include "linux/cleanup.h"
@@ -481,9 +482,13 @@ static __poll_t dma_proxy_poll(struct file *file, struct poll_table_struct *p_wa
 	struct dma_proxy_channel *pchannel_p = (struct dma_proxy_channel *)file->private_data;
     poll_wait(file, &pchannel_p->wait_q_h, p_wait_table);
     if(atomic_read(&pchannel_p->wait_transfer_count)> 0) {
-        t_mask = POLLIN;
+        t_mask |= POLLIN;
         // pr_info("rx available")
     }
+    
+    // TODO: Poll for TX_CHANNEL
+    t_mask |= POLLOUT;
+
     return t_mask; 
 }
 

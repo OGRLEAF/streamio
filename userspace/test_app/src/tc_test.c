@@ -115,7 +115,7 @@ int main_tx_test(int argc, char **argv)
     io_stream_device *dma_tx;
     struct channel_buffer *buffer_test;
     struct buffer_header * buffer_test_header;
-    int packet_loops = 200, j = 0;
+    int packet_loops = 2000000, j = 0;
 
     int packet_size = 1024 * 1;
     int repack_size = 1024;
@@ -323,8 +323,8 @@ exit:
 
 int main(int argc, char **argv)
 {
-    return txrx_test_thread(argc, argv); // TX &  RX data multithreading
-    // return main_txrx_test(argc, argv); // TX & RX in same thread
-    // return main_tx_test(argc, argv);   // RX only (For RF project)
-    /* return main_tx_file(argc, argv); */ // TX & RX from file to file
+    // return txrx_test_thread(argc, argv);  // TX &  RX data multithreading
+    // return main_txrx_test(argc, argv);    // TX & RX in same thread
+    return main_tx_test(argc, argv);      // RX only (For RF project)
+    // return main_tx_file(argc, argv);      // TX & RX from file to file
 }

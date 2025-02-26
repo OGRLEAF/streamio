@@ -39,8 +39,8 @@ static void * tx_thread(void * ptr){
         buffer_test = io_stream_get_buffer(dma_tx);
         // memset(buffer_test, 0xff, BUFFER_IN_BYTES(buffer_test));
         
-        buffer_test->header.decode_time_stamp = start;
-        buffer_test->header.tx_time_stamp = j;
+        buffer_test->header.decode_time_stamp = 321;
+        buffer_test->header.tx_time_stamp = j + 1;
         /* buffer_test->packet_length = packet_size; */ 
         
         BUFFER_LEN_SET(buffer_test, packet_size);
@@ -50,7 +50,7 @@ static void * tx_thread(void * ptr){
         {
             /* buffer_test->buffer[i].Q0 = start; */
             /* buffer_test->buffer[i].I0 = start + i + j * packet_size; */
-            buffer_test->buffer[i] = (start + i + j * packet_size + 1) * 1000;
+            buffer_test->buffer[i] = (start + i + j * packet_size + 1);
         }
         
 
@@ -91,7 +91,7 @@ static void * rx_thread(void * ptr){
             printf("Poll ret=%d\n", ret);
             continue;
         }else if(ret == 0) {
-            printf("Timeout. \n");
+            printf("Timeout. ");
             break;
         }
 
@@ -151,7 +151,7 @@ int txrx_test_thread(int argc, char **argv)
     io_stream_device *dma_rx;
     struct thread_config rx_thread_config, tx_thread_config;
 
-    uint32_t packet_loops = 10000;
+    uint32_t packet_loops = 1000000;
 
     uint32_t packet_size = 1024 * 16;
 
@@ -175,7 +175,6 @@ int txrx_test_thread(int argc, char **argv)
 
     io_write_mapped_device(map_dev, 5, 0b00);
     
-    sleep(1);
 
     rx_thread_config.dev = dma_rx;
     rx_thread_config.packet_size = repack_size;
