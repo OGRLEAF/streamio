@@ -818,7 +818,7 @@ static const struct of_device_id dma_proxy_of_ids[] = {
 
 static struct platform_driver dma_proxy_driver = {
 	.driver = {
-		.name = "dma_proxy_driver",
+		.name = "streamio-drv",
 		.owner = THIS_MODULE,
 		.of_match_table = dma_proxy_of_ids,
 	},

@@ -293,7 +293,7 @@ static const struct of_device_id transmit_control_of_ids[] = {
 
 static struct platform_driver transmit_control_driver = {
     .driver = {
-        .name = "transmit_control",
+        .name = "streamio-ctrl-drv",
         .owner = THIS_MODULE,
         .of_match_table = transmit_control_of_ids,
     },
