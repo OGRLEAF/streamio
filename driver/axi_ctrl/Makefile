@@ -19,14 +19,14 @@ OBJS = $(SRCS:.c=.o)
 
 MOD_OBJS = $(OBJS:$(PWD)/%=%)
 
-obj-m += axi_ctrl.o
+obj-m += streamio-ctrl-drv.o
 
 EXTRA_CFLAGS += -D_INDEP_MODULE
 all:
 	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERN_DIR) M=`pwd` modules -j
 
 install: all
-	$(INSTALL_CMD) ./axi_ctrl.ko kernel_modules/
+	$(INSTALL_CMD) ./streamio-ctrl-drv.ko kernel_modules/
 
 clean:
 	rm -rf ${TARGET} ${OBJS} $(OBJS:.o=.su)
