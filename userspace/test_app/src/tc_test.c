@@ -117,7 +117,7 @@ int main_tx_test(int argc, char **argv)
     struct buffer_header * buffer_test_header;
     int packet_loops = 2000000, j = 0;
 
-    int packet_size = 1024 * 1;
+    int packet_size = 1024 * 2;
     int repack_size = 1024;
     uint16_t start = 0;
     uint32_t points = 128;
@@ -130,6 +130,7 @@ int main_tx_test(int argc, char **argv)
     dma_tx = (io_stream_device *)io_add_stream_device(ctx, "/dev/axi_dma_1");
 
     io_write_mapped_device(map_dev, 5, 0b11);
+    io_write_mapped_device(map_dev, 4, 0b1);
     io_write_mapped_device(map_dev, 6, repack_size);
     io_write_mapped_device(map_dev, 7, 0b00000000); // bb data sel reg
 
