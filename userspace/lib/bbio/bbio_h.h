@@ -10,6 +10,10 @@
 
 #define MAX_DEVICE 4
 
+#define STREAM_DEVF_W_NOBLOCK (0b00000001)
+#define STREAM_DEVF_R_NOBLOCK (0b00000010)
+
+
 typedef int IO_FD;
 
 typedef struct _bbio_context_base io_context;
@@ -30,6 +34,9 @@ typedef uint32_t (*io_read_call)(io_mapped_device *device, uint32_t addr);
 typedef uint32_t (*io_write_stream)(io_stream_device *device, void *data, uint32_t size);
 typedef uint32_t (*io_read_stream)(io_stream_device *device, void *data, uint32_t size);
 typedef void (*io_sync_stream)(io_stream_device *device);
+
+typedef void (*io_post_context_close)(io_context *ctx);
+
 typedef struct channel_buffer *(*io_stream_alloc_buffer)(io_stream_device *device, uint32_t flag);
 enum IO_DEVICE_TYPE
 {
@@ -71,6 +78,7 @@ typedef struct _bbio_stream_device
     uint16_t buffer_n;
     // io_stream_buffer * buffer_pool;
     uint16_t current_buffer;
+    uint8_t flags;
 } io_stream_device;
 
 typedef struct _bbio_mapped_device
@@ -86,6 +94,7 @@ typedef struct _bbio_context_backend
     io_open_stream_channel_call open_stream;
     io_close_mapped_call close_mapped;
     io_close_stream_call close_stream;
+    io_post_context_close post_context_close;
     // io_open_call open;
     // io_close_call close;
     // io_mmap_call mmap;
