@@ -6,6 +6,12 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
+void io_post_context_close_local(io_context *ctx)
+{
+    free(ctx->devices);
+    free(ctx);
+}
+
 io_context *io_create_context()
 
 {
@@ -16,6 +22,7 @@ io_context *io_create_context()
     ctx->backend.open_stream = io_open_stream_local;
     ctx->backend.close_mapped = io_close_mapped_local;
     ctx->backend.close_stream = io_close_stream_local;
+    ctx->backend.post_context_close = io_post_context_close_local;
     // ctx->backend.open = io_open_local;
     // ctx->backend.close = io_close_local;
     // ctx->backend.mmap = io_mmap_local;
@@ -51,8 +58,10 @@ void io_close_context(io_context *ctx)
         }
         start_device++;
     }
-    free(ctx->devices);
-    free(ctx);
+    if(ctx->backend.post_context_close)
+    {
+        ctx->backend.post_context_close(ctx);
+    }
 }
 
 io_device *io_add_mapped_device(io_context *ctx, char *path)
