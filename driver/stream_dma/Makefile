@@ -14,8 +14,7 @@ OBJS = $(SRCS:.c=.o)
 
 MOD_OBJS = $(OBJS:$(PWD)/%=%)
 
-adrv9001_drv-objs := stream_dma_driver.o $(MOD_OBJS)
-obj-m += stream_dma_driver.o
+obj-m += streamio-drv.o
 
 EXTRA_CFLAGS += -D_INDEP_MODULE
 all:
@@ -25,7 +24,7 @@ dtb:
 	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERN_DIR) M=`pwd` device-tree/system-top.dtb
 
 install: all
-	$(INSTALL_CMD) ./stream_dma_driver.ko kernel_modules/
+	$(INSTALL_CMD) ./streamio-drv.ko kernel_modules/
 
 clean:
 	rm -rf ${TARGET} ${OBJS} $(OBJS:.o=.su)

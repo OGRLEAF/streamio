@@ -44,7 +44,7 @@ fpgautil -b top.bin -o pl.dtbo -f Partial -s EnUsrKey -k <32byte key value>
 fpgautil -b top.bin -r
 """
 
-STREAMIO_MODULE = "streamio"
+STREAMIO_MODULES = ["streamio-drv", "streamio-ctrl-drv"]
 
 try:
     firmware_choices = os.listdir(FIRMWARE_PATH)
@@ -104,12 +104,15 @@ if __name__ == '__main__':
 
 
     if args.drv_probe:
-        commands_to_exec.insert(0, ["rmmod", STREAMIO_MODULE])
-        commands_to_exec.append(["modprobe", STREAMIO_MODULE])
+        for mod in STREAMIO_MODULES:
+            commands_to_exec.insert(0, ["rmmod", mod])
+            commands_to_exec.append(["modprobe", mod])
 
     for command in commands_to_exec:
         exec_command = ' '.join(command)
-        print("# " + exec_command)
+        print("# " + exec_command, end="")
         if not args.dry_run:
-            os.system(exec_command)
+            print(f" > {os.system(exec_command)}")
+        else:
+            print("")
 

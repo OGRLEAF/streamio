@@ -1,0 +1,171 @@
+/dts-v1/;
+
+/ {
+
+	fragment@0 {
+		target = <0xffffffff>;
+
+		__overlay__ {
+			firmware-name = "streamio.bin";
+			pid = <0x00>;
+			resets = <0xffffffff 0x74>;
+			uid = <0xd4cbdaa1>;
+
+			clocking0 {
+				#clock-cells = <0x00>;
+				assigned-clock-rates = <0x5f5e100>;
+				assigned-clocks = <0xffffffff 0x47>;
+				clock-output-names = "fabric_clk";
+				clocks = <0xffffffff 0x47>;
+				compatible = "xlnx,fclk";
+				phandle = <0x03>;
+			};
+
+			clocking1 {
+				#clock-cells = <0x00>;
+				assigned-clock-rates = <0xee6b280>;
+				assigned-clocks = <0xffffffff 0x48>;
+				clock-output-names = "fabric_clk";
+				clocks = <0xffffffff 0x48>;
+				compatible = "xlnx,fclk";
+				phandle = <0x04>;
+			};
+
+			afi0 {
+				compatible = "xlnx,afi-fpga";
+				config-afi = <0x00 0x00 0x01 0x00 0x02 0x00 0x03 0x00 0x04 0x00 0x05 0x00 0x06 0x00 0x07 0x00 0x08 0x00 0x09 0x00 0x0a 0x00 0x0b 0x00 0x0c 0x00 0x0d 0x00 0x0e 0xa00 0x0f 0x200>;
+				resets = <0xffffffff 0x74 0xffffffff 0x75 0xffffffff 0x76 0xffffffff 0x77>;
+				phandle = <0x05>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <0xffffffff>;
+
+		__overlay__ {
+			#address-cells = <0x02>;
+			#size-cells = <0x02>;
+
+			dma@80000000 {
+				#dma-cells = <0x01>;
+				clock-names = "m_axi_mm2s_aclk\0m_axi_s2mm_aclk\0m_axi_sg_aclk\0s_axi_lite_aclk";
+				clocks = <0xffffffff 0x47 0xffffffff 0x47 0xffffffff 0x47 0xffffffff 0x47>;
+				compatible = "xlnx,axi-dma-7.1\0xlnx,axi-dma-1.00.a";
+				interrupt-names = "mm2s_introut\0s2mm_introut";
+				interrupt-parent = <0xffffffff>;
+				interrupts = <0x00 0x59 0x04 0x00 0x5a 0x04>;
+				reg = <0x00 0x80000000 0x00 0x10000>;
+				xlnx,addrwidth = <0x20>;
+				xlnx,include-sg;
+				xlnx,sg-length-width = <0x1a>;
+				phandle = <0x01>;
+
+				dma-channel@80000000 {
+					compatible = "xlnx,axi-dma-mm2s-channel";
+					dma-channels = <0x01>;
+					interrupts = <0x00 0x59 0x04>;
+					xlnx,datawidth = <0x80>;
+					xlnx,device-id = <0x00>;
+					xlnx,include-dre;
+				};
+
+				dma-channel@80000030 {
+					compatible = "xlnx,axi-dma-s2mm-channel";
+					dma-channels = <0x01>;
+					interrupts = <0x00 0x5a 0x04>;
+					xlnx,datawidth = <0x20>;
+					xlnx,device-id = <0x00>;
+					xlnx,include-dre;
+				};
+			};
+
+			dma@80010000 {
+				#dma-cells = <0x01>;
+				clock-names = "m_axi_mm2s_aclk\0m_axi_sg_aclk\0s_axi_lite_aclk";
+				clocks = <0xffffffff 0x47 0xffffffff 0x47 0xffffffff 0x47>;
+				compatible = "xlnx,axi-dma-7.1\0xlnx,axi-dma-1.00.a";
+				interrupt-names = "mm2s_introut";
+				interrupt-parent = <0xffffffff>;
+				interrupts = <0x00 0x5b 0x04>;
+				reg = <0x00 0x80010000 0x00 0x10000>;
+				xlnx,addrwidth = <0x20>;
+				xlnx,include-sg;
+				xlnx,sg-length-width = <0x1a>;
+				phandle = <0x02>;
+
+				dma-channel@80010000 {
+					compatible = "xlnx,axi-dma-mm2s-channel";
+					dma-channels = <0x01>;
+					interrupts = <0x00 0x5b 0x04>;
+					xlnx,datawidth = <0x80>;
+					xlnx,device-id = <0x01>;
+				};
+			};
+
+			baseband_sys@80020000 {
+				clock-names = "m00_axis_aclk\0s00_axi_aclk\0s00_axis_aclk\0s01_axis_aclk";
+				clocks = <0xffffffff 0x47 0xffffffff 0x47 0xffffffff 0x47 0xffffffff 0x47>;
+				compatible = "xlnx,baseband-sys-1.0";
+				interrupt-names = "rx_intr";
+				interrupt-parent = <0xffffffff>;
+				interrupts = <0x00 0x5c 0x04>;
+				reg = <0x00 0x80020000 0x00 0x1000>;
+				xlnx,s00-axi-addr-width = <0x0b>;
+				xlnx,s00-axi-data-width = <0x20>;
+				phandle = <0x06>;
+			};
+
+			streamio@0 {
+				compatible = "xlnx,dma_proxy";
+				interrupt-names = "rx_intr";
+				interrupt-parent = <0xffffffff>;
+				interrupts = <0x00 0x5c 0x01>;
+				dmas = <0x01 0x01 0x01 0x00>;
+				dma-names = "streamio_rx_0\0streamio_tx_0";
+				dma-coherent;
+			};
+
+			streamio@1 {
+				compatible = "xlnx,dma_proxy";
+				dmas = <0x02 0x00>;
+				dma-names = "streamio_tx_1";
+				dma-coherent;
+			};
+		};
+	};
+
+	__symbols__ {
+		clocking0 = "/fragment@0/__overlay__/clocking0";
+		clocking1 = "/fragment@0/__overlay__/clocking1";
+		afi0 = "/fragment@0/__overlay__/afi0";
+		axi_dma_baseband_0 = "/fragment@1/__overlay__/dma@80000000";
+		axi_dma_baseband_1 = "/fragment@1/__overlay__/dma@80010000";
+		baseband_sys_0 = "/fragment@1/__overlay__/baseband_sys@80020000";
+	};
+
+	__fixups__ {
+		fpga_full = "/fragment@0:target:0";
+		zynqmp_reset = "/fragment@0/__overlay__:resets:0\0/fragment@0/__overlay__/afi0:resets:0\0/fragment@0/__overlay__/afi0:resets:8\0/fragment@0/__overlay__/afi0:resets:16\0/fragment@0/__overlay__/afi0:resets:24";
+		zynqmp_clk = "/fragment@0/__overlay__/clocking0:assigned-clocks:0\0/fragment@0/__overlay__/clocking0:clocks:0\0/fragment@0/__overlay__/clocking1:assigned-clocks:0\0/fragment@0/__overlay__/clocking1:clocks:0\0/fragment@1/__overlay__/dma@80000000:clocks:0\0/fragment@1/__overlay__/dma@80000000:clocks:8\0/fragment@1/__overlay__/dma@80000000:clocks:16\0/fragment@1/__overlay__/dma@80000000:clocks:24\0/fragment@1/__overlay__/dma@80010000:clocks:0\0/fragment@1/__overlay__/dma@80010000:clocks:8\0/fragment@1/__overlay__/dma@80010000:clocks:16\0/fragment@1/__overlay__/baseband_sys@80020000:clocks:0\0/fragment@1/__overlay__/baseband_sys@80020000:clocks:8\0/fragment@1/__overlay__/baseband_sys@80020000:clocks:16\0/fragment@1/__overlay__/baseband_sys@80020000:clocks:24";
+		amba = "/fragment@1:target:0";
+		gic = "/fragment@1/__overlay__/dma@80000000:interrupt-parent:0\0/fragment@1/__overlay__/dma@80010000:interrupt-parent:0\0/fragment@1/__overlay__/baseband_sys@80020000:interrupt-parent:0\0/fragment@1/__overlay__/streamio@0:interrupt-parent:0";
+	};
+
+	__local_fixups__ {
+
+		fragment@1 {
+
+			__overlay__ {
+
+				streamio@0 {
+					dmas = <0x00 0x08>;
+				};
+
+				streamio@1 {
+					dmas = <0x00>;
+				};
+			};
+		};
+	};
+};

@@ -2,11 +2,11 @@ connect
 
 targets -set -nocase -filter {name =~ "APU"}
 
-rst -system
+rst 
 
 after 1000
 
-rst -system
+rst
 
 con 
 
