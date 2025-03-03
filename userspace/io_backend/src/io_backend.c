@@ -1,5 +1,7 @@
 #include "io_backend_call.h"
+#include "thpool.h"
 
+#include <stddef.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -20,7 +22,7 @@
 #include <net/if.h>
 #include <bbio_h.h>
 
-#include <bbio_backend_net.h>
+#include "io_backend.h"
 
 typedef struct _run_options
 {
@@ -169,6 +171,126 @@ static int client_stream_channel(int sockfd)
     return 0;
 }
 
+
+io_context  *opened_ctx_list[MAX_CONTEXT_COUNT] = {NULL, NULL, NULL, NULL, NULL};
+
+
+
+int handle_context(int client_fd, frame_top * frame)
+{
+    io_context * this_ctx = NULL;
+    int i;
+    int ret;
+    if((frame->op & 0xf) == FRAME_OP_OPEN)
+    {
+        for(i=0;i<4;i++){
+            if(opened_ctx_list[i] == NULL) {
+                this_ctx = io_create_context();
+                frame_ctx_top ctx_ret = FRAME_WITH_CTX(FRAME(FRAME_OP_OPEN | FRAME_DEV_CTX), i);
+                
+                ret = send(client_fd, &ctx_ret, sizeof(ctx_ret), 0);
+                if(ret < 0)
+                {
+                    printf("Failed to follow the connection %d\n", client_fd);
+                    io_close_context(this_ctx);
+                    opened_ctx_list[i] = NULL;
+                    return ret;
+                }
+                else 
+                {
+                    printf("New context created id=%d\n", i);
+                    opened_ctx_list[i] = this_ctx;
+                    return 0;
+                }
+                return ret;
+            }
+
+        }
+    }
+    else if((frame->op & 0xf) == FRAME_OP_CLOS)
+    {
+        frame_ctx_top client_frame;
+        // ret = recv(client_fd, ((void *)(&client_frame.prefix + 1)), (sizeof(frame_ctx_top) - sizeof(frame_top)), 0);
+        ret = recv(client_fd, (void *)(&client_frame), sizeof(frame_ctx_top), 0);
+        if(ret < 0)
+        {
+        }
+        else
+        {
+            if(client_frame.ctx_id < MAX_CONTEXT_COUNT)
+            {
+                if(opened_ctx_list[client_frame.ctx_id] != NULL)
+                {
+                    this_ctx = opened_ctx_list[client_frame.ctx_id];
+                    io_close_context(this_ctx);
+                    return 0; 
+                }
+                else
+                {
+                    return -1;
+                }
+            }
+        }
+        
+        
+    }
+    return -1;
+}
+
+int handle_mapped(int clientfd, frame_top *frame)
+{
+
+    return -1;
+}
+
+
+void start_task(void * arg)
+{
+    int ret;
+    int client_sockfd = (int) arg;
+    frame_top frame_top;
+    
+    ret = recv(client_sockfd, &frame_top, sizeof(frame_top), MSG_PEEK);
+
+    printf("Task created\n");
+    if(ret < 0)
+    {
+        printf("Failed to initiate task recv %d\n", ret);
+        return;
+    }
+
+
+    if((frame_top.op & 0xf0) == FRAME_DEV_CTX)
+    {
+        while(handle_context(client_sockfd, &frame_top) >= 0)
+        {
+            ret = recv(client_sockfd, &frame_top, sizeof(frame_top), 0);
+            if(ret < 0) {
+                printf("Connection disconnected with %d\n", ret);
+                return;
+            }
+            else if(ret == 0)
+            {
+                printf("Connection disconnected by client\n");
+                return;
+            }
+            else
+            {
+                printf("Maintain this connection %d\n", ret);
+            }
+        }
+                    
+    }
+    else if((frame_top.op & 0xf0) == FRAME_DEV_MAPPED)
+    {
+    }
+   return; 
+}
+
+frame_handler frame_handlers[] = {
+    [0] = handle_context
+};
+
 void sigint(int a)
 {
     printf("\nStop transmit...\n");
@@ -178,13 +300,14 @@ void sigint(int a)
 
 static int server_main(server_options *options)
 {
-    int sockfd, clilen, newsockfd;
+    int sockfd, newsockfd;
+    socklen_t clilen;
     struct sockaddr_in serv_addr, cli_addr;
     struct ifreq ifr;
     int ret;
     char addr_str[INET_ADDRSTRLEN];
 
-    handshake_msg hs;
+    threadpool thpool = thpool_init(4);
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
@@ -230,16 +353,32 @@ static int server_main(server_options *options)
         inet_ntop(cli_addr.sin_family,
                   &cli_addr.sin_addr,
                   addr_str, sizeof addr_str);
-        printf("server: got connection from %s\n", addr_str);
+        printf("Server: got connection from %s\n", addr_str);
+        
 
+        thpool_add_work(thpool, start_task, (void *)(uintptr_t) newsockfd);
+        printf("Thread created\n");
+        
+
+        
+        // Create process for every context
+
+        /*
         if (!fork())
         {
             close(sockfd);
             global_sockfd = newsockfd;
-            recv(newsockfd, &hs, sizeof(hs), 0);
-            if (hs.head == HANDSHAKE_HEADER)
+
+            recv(newsockfd, &frame, sizeof(frame_top), 0);
+            // Use client sockfd to identify context
+            if (frame.hs == HANDSHAKE_HEADER)
             {
-                if (hs.type == MAPPED_CHANNEL)
+                switch(frame.op & 0xf0) {
+                    case FRAME_DEV_CTX: {
+                        break;
+                    }
+                }
+                if (frame.op == MAPPED_CHANNEL)
                     client_mapped_channel(newsockfd);
                 else if (hs.type == STREAM_CHANNEL)
                     client_stream_channel(newsockfd);
@@ -253,7 +392,12 @@ static int server_main(server_options *options)
             exit(0);
         }
         close(newsockfd); // parent 不需要这个
+        */
     }
+
+    thpool_wait(thpool);
+    thpool_destroy(thpool);
+
 
     return 0;
 }
