@@ -110,7 +110,9 @@ if __name__ == '__main__':
 
     for command in commands_to_exec:
         exec_command = ' '.join(command)
-        print("# " + exec_command)
+        print("# " + exec_command, end="")
         if not args.dry_run:
-            os.system(exec_command)
+            print(f" > {os.system(exec_command)}")
+        else:
+            print("")
 
