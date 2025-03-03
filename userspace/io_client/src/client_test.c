@@ -33,8 +33,8 @@ int main_tx(io_context *ctx)
 
         for (i = 0; i < test_size; i++)
         {
-            buffer_test->buffer[i].I0 = i + j * test_size;
-            buffer_test->buffer[i].Q0 = i + j * test_size;
+            // buffer_test->buffer[i].I0 = i + j * test_size;
+            // buffer_test->buffer[i].Q0 = i + j * test_size;
         }
         io_write_stream_device(dma_tx, buffer_test, test_size * sizeof(iq_buffer));
     }
@@ -130,8 +130,8 @@ int main_rx(io_context *ctx)
             struct channel_buffer *buffer_rx_test = io_stream_get_buffer(dma_rx);
             
             for(int k=0; k < test_size; k++ ) {
-                buffer_rx_test->buffer[k].I0 = k;
-                buffer_tx_test->buffer[k].Q0 = k;
+                // buffer_rx_test->buffer[k].I0 = k;
+                // buffer_tx_test->buffer[k].Q0 = k;
             }
 
             // io_write_stream_device(dma_tx, buffer_tx_test, sizeof(iq_buffer) * test_size);
@@ -184,5 +184,6 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    return main_rx(ctx);
+    // return main_rx(ctx);
+    return 0;
 }
