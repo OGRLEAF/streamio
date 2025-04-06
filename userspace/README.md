@@ -7,28 +7,23 @@ StreamIO的用户Linux库、SDK及说明文档。
 
 ```
 .
-├── example        # 示例程序
-│   ├── makefile 
-│   └── src
-│       ├── arg_parse.c
-│       ├── tc_test.c
-│       └── tc_test.h
-├── README.md      # 本文档
-├── sdk            # 编译所用的头文件和动态库
+├── driver                  # 内核驱动
+│   ├── axi_ctrl            # AXI寄存器读写驱动
+│   ├── stream_dma          # DMA驱动
+│   └── stream_dma_enhanced
+├── lib                     # StreamIO操作库
 │   ├── bbio
-│   │   ├── bbio_backend.h
-│   │   ├── bbio_backend_net.h
-│   │   ├── bbio_dma_proxy.h
-│   │   ├── bbio_h.h
-│   │   ├── bbio_net.h
-│   │   └── bbio_private_h.h
 │   ├── buffer
-│   │   └── buffer.h
-│   ├── libstreamio.so      # 开发板所用的动态库，与user/lib下的libstreamio.so是同一文件
-│   └── libstreamio-x64.so  
-└── user         # 需要放置在Linux用户目录的文件
+│   ├── include             # 头文件
+│   │   ├── bbio
+│   │   ├── buffer
+│   │   └── utils
+│   └── utils
+├── scripts                 # 常用脚本
+└── userspace               # 用户应用软件
     ├── io_backend
-    └── lib/libstreamio.so 
+    ├── io_client
+    └── test_app            # 示例程序
 ```
 
 ## SD卡镜像和使用方法
@@ -39,49 +34,84 @@ StreamIO的用户Linux库、SDK及说明文档。
 
 将开发板连接到有DHCP服务的局域网中，首先通过串口连接电脑，串口已经配置了自动登录。
 
+使用串口连接开发板：
+
+```bash
+sudo tio /dev/ttyUSB3       # 一般是ttyUSB3，如果没有输出，尝试ttyUSB0、ttyUSB1……
+```
+
 使用`ip a`命令查看开发板的IP地址。
 
-在setup.sh里，编辑`IP=xxx.xxx.xxx.xxx`为开发板获取到的IP地址。
+一般情况下，开发板能够自动通过DHCP关联自己的ip地址和主机名（`tq15egbase`），直接使用`tq15egbase`主机名就可以访问开发板。
+但有时候也会出问题。
+
+在`scrips/setup.sh`里，编辑`HOST=xxx.xxx.xxx.xxx`，设置开发板获取到的IP地址。
 
 执行：
 
 ```bash
+cd scripts
 bash setup.sh
 ```
 
-配置SSH登录密钥。
+会自动生成SSH连接的密钥和配置。（如果提示`Overwrite (y/n)?`，建议输入`n`回车） 
 
 配置完成后，将输出的最后一行内容粘贴至开发板串口并执行。
 
+输出的最后一行内容如下例所示：
+```bash
+mkdir -p .ssh && echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHWVpj/2gD+j2MeGt6qNtIEl6TpnqNKPUHfrcCAAv/ML orgleaf@orgleaf-ThinkStation-K" > .ssh/authorized_keys
+```
+
 执行：
 ```bash
-bash setup.sh
+bash login.sh
 ```
 登录到开发板。
 
-<!--
-在初次启动后用户目录可以看到如下文件：
+## 下载FPGA和刷新驱动
+
+因为FPGA工程有两个：带收发的验证工程和仅发送的射频工程。所以分别为两个工程分别设置了固件（bitstream和设备树）。
+
+验证工程的固件：`/lib/firmware/xilinx/streamio`
+
+射频工程的固件：`/lib/firmware/xilinx/adrv9002`
+
+在`/home/root`目录下，准备了用于加载固件的脚本：`streamio-app.py`，脚本的用法如下：
 
 ```
-lib
-test_app
+root@tq15egbase:~# ./streamio-app.py --help
+usage: StreamIO [-h] [-b BITSTREAM] [-o DTBO] [-m MODULE] [--firmware FIRMWARE] [--drv-probe] [--skip-pl] [--skip-drv] [--list-firmware] [--dry-run]
+
+StreamIO driver and PL management
+
+options:
+  -h, --help            show this help message and exit
+  -b BITSTREAM, --bitstream BITSTREAM
+  -o DTBO, --dtbo DTBO
+  -m MODULE, --module MODULE
+  --firmware FIRMWARE   firmware (combined with PL and driver), default 'streamio', 4 available: streamio, openwifi-adrv9002, adrv9002, streamio.bin
+  --drv-probe
+  --skip-pl
+  --skip-drv
+  --list-firmware       list all firmware build in this image
+  --dry-run
 ```
 
-test_app即example/目录下编译好的示例程序
---> 
+开机加载firmware：
 
+```bash
+./streamio-app --firmware adrv9002  # 加载射频固件
+./streamio-app --firmware streamio  # 加载验证固件
+```
 
+### 重新编程FPGA
 
-### 下载FPGA和刷新驱动
+使用验证固件时，可以直接通过Vivado下载bitstream，下载完成后，在开发板上执行`./streamio-app.py --firmware streamio --skip-pl`（重新加载驱动，但不覆盖FPGA）
 
-启动后，执行`streamio-app`命令刷新FPGA并加载驱动。
-
-如果DMA卡住，执行该命令可以恢复至开机状态。个别情况可能出现内核报错，重启开发板即可。
-
-
-有两种方式可以重新下载FPGA：
-1. 将bitstream文件上传到/lib/firmware/xilinx/streamio/streamio.bin，执行`streamio-app`。也可以将bitstream放到其他目录下，执行`streamio-app -b <bitstream目录位置>`加载文件，如`streamio-app -b ./streamio.bin`。
-2. 首先执行`streamio-app drv`命令重新加载驱动使驱动处于初始化状态，然后直接在Vivado里下载FPGA，下载完成后，再次执行`streamio-app drv`重新加载驱动。
+使用射频固件时，因为ADRV9002的驱动加载比较特殊，需要按照如下步骤编程FPGA：
+1. 在`scripts/`目录下执行`bash deploy-pl.sh`，将新的bitstream上传到开发板
+2. 执行`streamio-app.py --firmware adrv9002`，重新编程FPGA、重新加载驱动。
 
 
 ## DEMO使用说明
@@ -239,6 +269,46 @@ while (loop_times && !stop)
     loop_times--;
 }
 ```
+
+#### 从接受同道中读数据（select）
+
+新的驱动中支持了select操作，使得读取不会因为DMA接收时没有数据而卡住。
+
+使用方法可以参考`userspace/test_app/txrx_test_thread.c`中的`tx_thread`函数。相关片段摘录如下：
+
+```c
+    FD_ZERO(&readfds);
+    FD_SET(dma_rx->fd, &readfds);
+    for (int j = 0; ; j++)
+    {
+        // 当DMA没有数据需要读的时候，程序会在这里睡眠，可以随时CTRL+C退出程序。
+        // 当DMA有数据可以读的时候，程序会继续运行
+        ret = select(dma_rx->fd + 1, &readfds, NULL, NULL, &timeout);      
+        
+        if(ret < 0) {
+            printf("Poll ret=%d\n", ret);
+            continue;
+        }else if(ret == 0) {
+            printf("Timeout. ");
+            break;
+        }
+
+        if(!FD_ISSET(dma_rx->fd, &readfds)) {
+            printf("Poll rx not ready");
+            continue;
+
+        }
+
+
+        buffer_test_rx = io_stream_get_buffer(dma_rx);
+
+
+        io_read_stream_device(dma_rx, buffer_test_rx, 128 * 1024);
+
+        // ...
+    }
+```
+
 
 #### 向发送通道中写入数据
 
